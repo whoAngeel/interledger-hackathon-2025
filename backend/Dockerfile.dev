@@ -1,0 +1,18 @@
+# Dockerfile.dev
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Instalar nodemon globalmente
+RUN npm install -g nodemon
+
+COPY package*.json ./
+
+# Instalar todas las dependencias (incluyendo dev)
+RUN npm install
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
