@@ -1,23 +1,4 @@
-Backend – Integración con Open Payments (Interledger)
 
-Este backend implementa pagos P2P (peer-to-peer) y Split Payments (pagos divididos) utilizando el estándar Open Payments
- del ecosistema Interledger.
-
-Diseñado para demostrar pagos interoperables, programables y seguros entre wallets distintas, siguiendo el protocolo GNAP para autorización.
-
-🧠 Propósito del Proyecto
-
-En el contexto del hackathon, nuestro objetivo fue integrar Open Payments en un backend real que permitiera:
-
-Pagos entre usuarios (wallets distintas) sin depender de un proveedor centralizado.
-
-Pagos divididos (Split Payments) donde un mismo monto se reparte automáticamente entre varios receptores.
-
-Autorización del usuario final mediante el flujo interactivo de GNAP (con redirect URL).
-
-Persistencia de transacciones, estados y logs para trazabilidad en Firestore.
-
-📋 Tabla de Contenidos
 # Backend – Integración con Open Payments (Interledger)
 
 Este backend implementa pagos P2P (peer-to-peer) y Split Payments (pagos divididos) utilizando el estándar Open Payments del ecosistema Interledger.
@@ -114,8 +95,8 @@ Los pagos usan el modelo cliente → backend → Open Payments. Ambos tipos (P2P
 
 ```json
 {
-  "senderWalletUrl": "https://ilp.interledger-test.dev/alice",
-  "recipientWalletUrl": "https://ilp.interledger-test.dev/bob",
+  "senderWalletUrl": "https://ilp.interledger-test.dev/angeel",
+  "recipientWalletUrl": "https://ilp.interledger-test.dev/ronaldoelguapo",
   "amount": { "value": "1000", "assetCode": "USD", "assetScale": 2 }
 }
 ```
@@ -136,10 +117,10 @@ Permite dividir un pago entre varios receptores con una única autorización.
 
 ```json
 {
-  "senderWalletUrl": "https://ilp.interledger-test.dev/alice",
+  "senderWalletUrl": "https://ilp.interledger-test.dev/angeel",
   "recipients": [
-    { "walletUrl": "https://ilp.interledger-test.dev/bob", "percentage": 70 },
-    { "walletUrl": "https://ilp.interledger-test.dev/charlie", "percentage": 30 }
+    { "walletUrl": "https://ilp.interledger-test.dev/ronaldoelguapo", "percentage": 70 },
+    { "walletUrl": "https://ilp.interledger-test.dev/mochi", "percentage": 30 }
   ],
   "totalAmount": { "value": "1000", "assetCode": "USD", "assetScale": 2 }
 }
