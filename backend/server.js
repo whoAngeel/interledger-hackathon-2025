@@ -10,7 +10,7 @@ import log from "./src/utils/logger.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080; // Cambiar de 3000 a 8080
 
 async function startServer() {
   try {
