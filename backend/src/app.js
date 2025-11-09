@@ -9,6 +9,8 @@ import healthRoutes from "./routes/health.routes.js";
 import paymentRoutes from "./routes/payments.routes.js";
 import splitPaymentRoutes from "./routes/splitpayments.routes.js";
 import paymentsQueryRoutes from "./routes/payments.query.routes.js";
+import fxRoutes from "./routes/fx.routes.js";
+import openPaymentsRoutes from "./routes/openpayments.routes.js";
 const app = express();
 
 // Security con helmet (configuración permisiva para desarrollo)
@@ -51,6 +53,8 @@ app.use("/", healthRoutes);
 app.use("/api/payments", paymentsQueryRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/split-payments", splitPaymentRoutes);
+app.use("/api/fx", fxRoutes);
+app.use("/api", openPaymentsRoutes);
 
 // 404 handler (debe ir después de todas las rutas)
 app.use((req, res) => {
