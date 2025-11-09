@@ -178,4 +178,9 @@ Finalmente se lograron ejecutar pagos P2P y Split en el entorno de prueba `https
 
 ## 👥 Equipo
 
-Los Vibecoders
+### Los Vibecoders
+- Ronaldo Acevedo Ojeda
+- Amado Juvencio Jose Santiago
+- [Angel Jesus Zorrilla Cuevas](www.linkedin.com/in/angel-jesus-zorrilla-cuevas-269a9b296)
+- Oliver Caballero Silva
+
