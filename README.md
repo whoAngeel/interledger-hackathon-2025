@@ -1,5 +1,4 @@
 
-📋 Tabla de Contenidos
 # Backend – Integración con Open Payments (Interledger)
 
 Este backend implementa pagos P2P (peer-to-peer) y Split Payments (pagos divididos) utilizando el estándar Open Payments del ecosistema Interledger.
