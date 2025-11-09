@@ -185,4 +185,4 @@ Finalmente se lograron ejecutar pagos P2P y Split en el entorno de prueba `https
 - Oliver Caballero Silva
 
 ## Anexos
-Primera versión del api - https://github.com/RonaldoAO/Interledger_back
+Extensión del api - https://github.com/RonaldoAO/Interledger_back
