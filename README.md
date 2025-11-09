@@ -179,8 +179,10 @@ Finalmente se lograron ejecutar pagos P2P y Split en el entorno de prueba `https
 ## 👥 Equipo
 
 ### Los Vibecoders
-- Ronaldo Acevedo Ojeda
+- [Ronaldo Acevedo Ojeda](www.linkedin.com/in/ronaldoacevedo)
 - Amado Juvencio Jose Santiago
 - [Angel Jesus Zorrilla Cuevas](www.linkedin.com/in/angel-jesus-zorrilla-cuevas-269a9b296)
 - Oliver Caballero Silva
 
+## Anexos
+Primera versión del api - https://github.com/RonaldoAO/Interledger_back
