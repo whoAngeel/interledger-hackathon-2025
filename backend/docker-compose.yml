@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Backend API
   backend:
     build: .
     container_name: interledger-backend
@@ -15,13 +14,15 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - WALLET_ADDRESS_URL=${WALLET_ADDRESS_URL}
       - KEY_ID=${KEY_ID}
-      - PRIVATE_KEY_PATH=${PRIVATE_KEY_PATH}
-      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - PRIVATE_KEY_PATH=/app/dev.key
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - FIRESTORE_DATABASE_ID=${FIRESTORE_DATABASE_ID}
       - FRONTEND_URL=${FRONTEND_URL}
     volumes:
       - ./src:/app/src
-      - ./keys:/app/keys:ro
+      - ./dev.key:/app/dev.key:ro
+      - ./credentials.json:/app/credentials.json:ro
       - ./node_modules:/app/node_modules
     depends_on:
       - redis
@@ -29,7 +30,6 @@ services:
       - app-network
     restart: unless-stopped
 
-  # Redis
   redis:
     image: redis:7-alpine
     container_name: interledger-redis
