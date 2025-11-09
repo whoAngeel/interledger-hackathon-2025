@@ -9,7 +9,7 @@ A payment orchestration platform built on **Interledger Protocol** and **Open Pa
 ## 📂 Project Repositories
 
 ### 🔧 [Backend - Payment Orchestration API](https://github.com/whoAngeel/interledger-hackathon-2025/tree/main/backend)
-
+[Deepwiki Documentation](https://deepwiki.com/whoAngeel/interledger-hackathon-2025/tree/main/backend)
 **Stack:** Node.js, Express, Open Payments SDK, Firestore, Redis
 
 Unified backend that orchestrates all payment flows with Open Payments integration:
@@ -42,8 +42,15 @@ https://interledger-backend-845205707453.us-central1.run.app/health/
 
 ----------
 
+### 🔧 [Backend - Microservice (union payments and metrics service)](https://github.com/RonaldoAO/Interledger_back)
+[Deepwiki Documentation](https://deepwiki.com/whoAngeel/interledger-hackathon-2025/tree/main/backend)
+**Stack:** Node.js, Express, Typescript, Open Payments SDK, AWS
+
+backend for union payments and system metrics
+[Deepwiki Documentation](https://deepwiki.com/RonaldoAO/Interledger_turismo)
 
 ### 📱 [Mobile/Web App - Tourism Plattform with QR Payments](https://github.com/RonaldoAO/Interledger_turismo)
+[Deepwiki Documentation](https://deepwiki.com/RonaldoAO/Interledger_turismo)
 
 **Stack:** Flutter, NFC, QR Scanner
 
