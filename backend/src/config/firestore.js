@@ -17,24 +17,24 @@ export const initializeFirestore = () => {
 
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       // Resolver la ruta del archivo (puede ser relativa o absoluta)
-      const credentialsPath = resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+      const credentialsPath = resolve(
+        process.env.GOOGLE_APPLICATION_CREDENTIALS
+      );
 
       if (!existsSync(credentialsPath)) {
         throw new Error(
           `❌ El archivo de credenciales no existe: ${credentialsPath}\n` +
-          `   Verifica que GOOGLE_APPLICATION_CREDENTIALS apunte a un archivo válido.`
+            `   Verifica que GOOGLE_APPLICATION_CREDENTIALS apunte a un archivo válido.`
         );
       }
 
       let serviceAccount;
       try {
-        serviceAccount = JSON.parse(
-          readFileSync(credentialsPath, "utf8")
-        );
+        serviceAccount = JSON.parse(readFileSync(credentialsPath, "utf8"));
       } catch (error) {
         throw new Error(
           `❌ Error leyendo el archivo de credenciales: ${credentialsPath}\n` +
-          `   Error: ${error.message}`
+            `   Error: ${error.message}`
         );
       }
 
@@ -57,7 +57,7 @@ export const initializeFirestore = () => {
       if (!firestoreOptions.projectId) {
         throw new Error(
           `❌ No se pudo determinar el projectId.\n` +
-          `   Configura GCP_PROJECT_ID en tu archivo .env o asegúrate de que el archivo de credenciales tenga project_id.`
+            `   Configura GCP_PROJECT_ID en tu archivo .env o asegúrate de que el archivo de credenciales tenga project_id.`
         );
       }
     } else {
@@ -70,7 +70,7 @@ export const initializeFirestore = () => {
       } else {
         console.warn(
           "⚠️  GOOGLE_APPLICATION_CREDENTIALS no está configurado y GCP_PROJECT_ID tampoco.\n" +
-          "   Se intentará usar Application Default Credentials (ADC)."
+            "   Se intentará usar Application Default Credentials (ADC)."
         );
       }
     }
@@ -84,11 +84,13 @@ export const initializeFirestore = () => {
       });
 
       console.log(`✅ Firestore inicializado - Base de datos: ${databaseId}`);
-      console.log(`✅ Proyecto GCP: ${firestoreOptions.projectId || "usando ADC"}`);
+      console.log(
+        `✅ Proyecto GCP: ${firestoreOptions.projectId || "usando ADC"}`
+      );
     } catch (error) {
       throw new Error(
         `❌ Error inicializando Firestore: ${error.message}\n` +
-        `   Verifica tus credenciales y configuración.`
+          `   Verifica tus credenciales y configuración.`
       );
     }
   }
