@@ -1,5 +1,5 @@
 
-# Backend – Integración con Open Payments (Interledger)
+# Integración con Open Payments (Interledger)
 
 Este backend implementa pagos P2P (peer-to-peer) y Split Payments (pagos divididos) utilizando el estándar Open Payments del ecosistema Interledger.
 
@@ -15,6 +15,9 @@ En el contexto del hackathon, el objetivo fue integrar Open Payments en un backe
 - Pagos divididos (Split Payments) donde un mismo monto se reparte automáticamente entre varios receptores.
 - Autorización del usuario final mediante el flujo interactivo de GNAP (redirect URL).
 - Persistencia de transacciones, estados y logs para trazabilidad en Firestore.
+
+  ## Recursos
+  [DRIVE](https://drive.google.com/drive/folders/1_oFnr9xJkG9FJCV80pUnZOVvM38BDrlm)
 
 ## 📋 Tabla de contenidos
 
