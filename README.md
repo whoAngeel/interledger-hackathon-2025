@@ -1,97 +1,98 @@
+API Extension — https://github.com/RonaldoAO/Interledger_back
+Frontend - https://github.com/RonaldoAO/Interledger_turismo
 
-# Backend – Integración con Open Payments (Interledger)
+# Backend — Open Payments (Interledger) Integration
 
-Este backend implementa pagos P2P (peer-to-peer) y Split Payments (pagos divididos) utilizando el estándar Open Payments del ecosistema Interledger.
+This backend implements P2P (peer-to-peer) and Split Payments using the Open Payments standard from the Interledger ecosystem.
 
-Diseñado para demostrar pagos interoperables, programables y seguros entre wallets distintas, siguiendo el protocolo GNAP para autorización.
+It is designed to demonstrate interoperable, programmable, and secure payments across different wallets, following the GNAP protocol for authorization.
 
 ---
 
-## 🧠 Propósito del proyecto
+## Project Purpose
 
-En el contexto del hackathon, el objetivo fue integrar Open Payments en un backend que permita:
+Within the hackathon context, the goal was to integrate Open Payments into a backend that enables:
 
-- Pagos entre usuarios (wallets distintas) sin depender de un proveedor centralizado.
-- Pagos divididos (Split Payments) donde un mismo monto se reparte automáticamente entre varios receptores.
-- Autorización del usuario final mediante el flujo interactivo de GNAP (redirect URL).
-- Persistencia de transacciones, estados y logs para trazabilidad en Firestore.
+- Payments between users (different wallets) without relying on a centralized provider.
+- Split Payments where a single amount is automatically distributed among multiple recipients.
+- End-user authorization via the interactive GNAP flow (redirect URL).
+- Persistence of transactions, states, and logs for traceability in Firestore.
 
-## 📋 Tabla de contenidos
+## Table of Contents
 
-- [Arquitectura](#arquitectura)
-- [Configuración](#configuración)
-- [Flujos de pago](#flujos-de-pago)
-- [Integración con Open Payments](#integración-con-open-payments)
-- [Manejo de estados en Firestore](#manejo-de-estados-en-firestore)
-- [Seguridad y buenas prácticas](#seguridad-y-buenas-prácticas)
-- [Aprendizajes y retos](#aprendizajes-y-retos)
-- [Referencias](#referencias)
+- Architecture
+- Configuration
+- Payment Flows
+- Open Payments Integration
+- State Management in Firestore
+- Security and Best Practices
+- Lessons and Challenges
+- References
+- Team
 
-## 🏗️ Arquitectura
+## Architecture
 
-Estructura principal del proyecto:
+Main project structure:
 
 ```
 backend/
-├── src/
-│   ├── config/        # Configuración de servicios externos
-│   ├── controllers/   # Lógica de entrada de endpoints
-│   ├── services/      # Lógica de negocio (Open Payments, Firestore, Redis)
-│   ├── routes/        # Definición de rutas Express
-│   └── middleware/    # Logging y manejo de errores
-└── server.js          # Punto de entrada principal
+└─ src/
+   ├─ config/        # External services configuration
+   ├─ controllers/   # Endpoint entry logic
+   ├─ services/      # Business logic (Open Payments, Firestore, Redis)
+   ├─ routes/        # Express route definitions
+   ├─ middleware/    # Logging and error handling
+   └─ server.js      # Main entry point
 ```
 
-## 🧩 Tecnologías clave
+## Key Technologies
 
-| Componente | Uso |
-|---|---|
-| Express.js | Framework backend |
-| @interledger/open-payments | SDK oficial para integrar Open Payments |
-| Firestore (GCP) | Persistencia de pagos, grants y logs |
-| Redis | Cache y rate-limiting |
-| Winston | Logging estructurado |
-| Docker | Entorno de despliegue portable |
+- Express.js — Backend framework
+- @interledger/open-payments — Official SDK for Open Payments
+- Firestore (GCP) — Persistence for payments, grants, and logs
+- Redis — Cache and rate-limiting
+- Winston — Structured logging
+- Docker — Portable deployment environment
 
-## ⚙️ Configuración
+## Configuration
 
-Crea un archivo `.env` basado en `env.example` y configura las variables necesarias:
+Create a `.env` file based on `env.example` and configure the required variables:
 
 ```env
 PORT=3000
-WALLET_ADDRESS_URL=https://ilp.interledger-test.dev/tu_usuario
+WALLET_ADDRESS_URL=https://ilp.interledger-test.dev/your_user
 PRIVATE_KEY_PATH=./keys/private-key.pem
-KEY_ID=mi-key-id
+KEY_ID=my-key-id
 GOOGLE_APPLICATION_CREDENTIALS=credentials.json
 FIRESTORE_DATABASE_ID=opendb
 FRONTEND_URL=http://localhost:3001
 CALLBACK_BASE_URL=http://localhost:3000
 ```
 
-### Instalación y ejecución
+## Installation and Run
 
 ```bash
 npm install
 npm run dev
-# o con Docker
+# or with Docker
 npm run docker:dev
 ```
 
-## 🔄 Flujos de pago
+## Payment Flows
 
-Los pagos usan el modelo cliente → backend → Open Payments. Ambos tipos (P2P y Split) requieren autorización interactiva (GNAP).
+Payments use the client → backend → Open Payments model. Both types (P2P and Split) require interactive authorization (GNAP).
 
-### Pago P2P (Peer-to-Peer)
+### P2P (Peer-to-Peer) Payment
 
-1. Cliente → `POST /api/payments/initiate`
-2. Backend crea incoming payment en la wallet del receptor
-3. Backend genera quote y solicita grant interactivo
-4. Devuelve `redirectUrl` al cliente
-5. Usuario autoriza en la wallet
-6. Cliente → `POST /api/payments/:id/complete`
-7. Backend finaliza grant y crea outgoing payment
+1. Client → `POST /api/payments/initiate`
+2. Backend creates an incoming payment on the recipient's wallet
+3. Backend creates a quote and requests an interactive grant
+4. Returns `redirectUrl` to the client
+5. User authorizes in the wallet
+6. Client → `POST /api/payments/:id/complete`
+7. Backend finalizes the grant and creates an outgoing payment
 
-#### Ejemplo de request
+#### Example request
 
 ```json
 {
@@ -101,19 +102,19 @@ Los pagos usan el modelo cliente → backend → Open Payments. Ambos tipos (P2P
 }
 ```
 
-### Split Payment (Pagos divididos)
+### Split Payment
 
-Permite dividir un pago entre varios receptores con una única autorización.
+Allows splitting a payment among multiple recipients with a single authorization.
 
-1. Cliente → `POST /api/split-payments/checkout`
-2. Backend crea múltiples incoming payments (uno por receptor)
-3. Solicita un grant interactivo único y devuelve `redirectUrl`
-4. Usuario autoriza el split en la wallet
-5. Cliente → `POST /api/split-payments/:id/complete`
-6. Backend crea outgoing payments paralelos
-7. Firestore actualiza el estado global
+1. Client → `POST /api/split-payments/checkout`
+2. Backend creates multiple incoming payments (one per recipient)
+3. Requests a single interactive grant and returns `redirectUrl`
+4. User authorizes the split in the wallet
+5. Client → `POST /api/split-payments/:id/complete`
+6. Backend creates parallel outgoing payments
+7. Firestore updates the global state
 
-#### Ejemplo de request
+#### Example request
 
 ```json
 {
@@ -126,11 +127,11 @@ Permite dividir un pago entre varios receptores con una única autorización.
 }
 ```
 
-## 💳 Integración con Open Payments
+## Open Payments Integration
 
-La integración utiliza el SDK oficial `@interledger/open-payments` con autenticación mediante clave privada y `keyId`, siguiendo GNAP.
+The integration uses the official `@interledger/open-payments` SDK with private-key authentication and `keyId`, following GNAP.
 
-Ejemplo de solicitud de grant (simplificado):
+Example grant request (simplified):
 
 ```js
 await client.grant.request({ url: wallet.authServer }, {
@@ -139,44 +140,42 @@ await client.grant.request({ url: wallet.authServer }, {
 });
 ```
 
-## 🧠 Manejo de estados en Firestore
+## State Management in Firestore
 
-Cada pago se guarda con un estado que refleja su ciclo de vida:
+Each payment is stored with a state that reflects its lifecycle:
 
-| Estado | Descripción |
-|---|---|
-| PENDING_AUTHORIZATION | Esperando confirmación del usuario |
-| COMPLETED | Pago exitoso |
-| PARTIAL | En split payments, algunos pagos fallaron |
-| FAILED | Error general en el flujo |
+- PENDING_AUTHORIZATION — Waiting for user confirmation
+- COMPLETED — Payment succeeded
+- PARTIAL — In split payments, some legs failed
+- FAILED — General error in the flow
 
-## 🔐 Seguridad y buenas prácticas
+## Security and Best Practices
 
-- Rate limiting con Redis
-- CORS configurado dinámicamente
-- Helmet.js para headers seguros
-- Validación exhaustiva de inputs
-- Logs estructurados para auditoría (Winston)
-- No se exponen tokens ni claves privadas en respuestas
+- Rate limiting with Redis
+- Dynamically configured CORS
+- Helmet.js for secure headers
+- Thorough input validation
+- Structured logs for auditing (Winston)
+- Do not expose tokens or private keys in responses
 
-## 🚧 Aprendizajes y retos
+## Lessons and Challenges
 
-Desafíos encontrados durante la integración:
+Challenges during the integration:
 
-- Entender el flujo interactivo de GNAP y cuándo usar grants vs tokens directos.
-- Manejar errores en quotes cuando la autorización aún no se ha completado.
-- Coordinar Split Payments para asegurar que todos los receptores reciban su parte.
-- Asegurar idempotencia y auditoría en Firestore.
+- Understanding the interactive GNAP flow and when to use grants vs direct tokens
+- Handling quote errors before authorization is completed
+- Coordinating Split Payments to ensure all recipients receive their share
+- Ensuring idempotency and auditability in Firestore
 
-Finalmente se lograron ejecutar pagos P2P y Split en el entorno de prueba `https://ilp.interledger-test.dev/`, con autorización y persistencia.
+Successfully executed P2P and Split payments in the test environment `https://ilp.interledger-test.dev/` with authorization and persistence.
 
-## 📚 Referencias
+## References
 
 - Open Payments Guide
 - Interledger Protocol
 - GNAP Specification (IETF Draft)
 
-## 👥 Equipo
+## Team
 
 ### Los Vibecoders
 - [Ronaldo Acevedo Ojeda](https://www.linkedin.com/in/ronaldoacevedo/)
@@ -184,5 +183,3 @@ Finalmente se lograron ejecutar pagos P2P y Split en el entorno de prueba `https
 - [Angel Jesus Zorrilla Cuevas](https://www.linkedin.com/in/angel-jesus-zorrilla-cuevas-269a9b296/)
 - Oliver Caballero Silva
 
-## Anexos
-Extensión del api - https://github.com/RonaldoAO/Interledger_back
