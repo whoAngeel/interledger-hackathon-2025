@@ -1,189 +1,368 @@
-API Extension — https://github.com/RonaldoAO/Interledger_back
-Frontend - https://github.com/RonaldoAO/Interledger_turismo
+# 🌍 Interledger Tourism — Open Payments for Sustainable Tourism
 
-# Backend — Open Payments (Interledger) Integration
+A payment orchestration platform built on **Interledger Protocol** and **Open Payments** that enables instant, interoperable, and transparent transactions for sustainable tourism.
+  [Project Resources (video, presentation, diagrams, etc)](https://drive.google.com/drive/folders/1_oFnr9xJkG9FJCV80pUnZOVvM38BDrlm)
 
-This backend implements P2P (peer-to-peer) and Split Payments using the Open Payments standard from the Interledger ecosystem.
 
-It is designed to demonstrate interoperable, programmable, and secure payments across different wallets, following the GNAP protocol for authorization.
+----------
+
+## 📂 Project Repositories
+
+### 🔧 [Backend - Payment Orchestration API](https://github.com/whoAngeel/interledger-hackathon-2025/tree/main/backend)
+
+**Stack:** Node.js, Express, Open Payments SDK, Firestore, Redis
+
+Unified backend that orchestrates all payment flows with Open Payments integration:
+
+-   P2P payments with automatic currency conversion
+-   Split Payments: distribute funds to multiple recipients in one authorization
+-   Transaction history and analytics
+-   Union payments flow
+-   GNAP interactive authorization flow
+-   Deployed on Google Cloud Run
+
+### Backend in 
+**Production backend url**
+https://interledger-backend-845205707453.us-central1.run.app/api/
+
+**health check** 
+https://interledger-backend-845205707453.us-central1.run.app/health/
+
+**Key Endpoints:**
+
+-   `POST /api/payments/initiate` - P2P payment
+-   `POST /api/split-payments/checkout` - Split payment
+-   `GET /api/payments/query/list` - Transaction history
+-   `GET /api/payments/query/stats` - Analytics
+ -   `POST /api/payments/{id}/complete` - Complete P2P payment
+-   `POST /api/split-payments/{id}/complete` - Complete split payment
+-   `GET/api/split-payments/{id}` - Get status payment
+-   `POST /api/payments/{id}` - Get Status payment
+
+
+----------
+
+
+### 📱 [Mobile/Web App - Tourism Plattform with QR Payments](https://github.com/RonaldoAO/Interledger_turismo)
+
+**Stack:** Flutter, NFC, QR Scanner
+
+Point-of-sale mobile payments:
+
+-   Browse sustainable tourism experiences
+-   Contactless NFC payments
+-   QR code generation and scanning
+-   Offline mode support
+-   Multi-currency wallet
+
+----------
+
+## 🎯 Impact
+
+**Real-World Scenario:** Tourist pays $100 USD for eco-tour in Oaxaca
+
+**Traditional systems:**
+
+-   3-5% credit card fees
+-   2-3 day settlement
+-   Unfavorable FX rates
+-   Community receives share weeks later
+-  Separate bills when paying at a restaurant are often tedious for commerce
+
+**With Interledger Tourism:**
+
+-   ✅ Instant split: 60% guide, 30% community, 10% platform
+-   ✅ No banking intermediaries
+-   ✅ Real-time currency conversion (ILP)
+-   ✅ Funds available immediately
+-   ✅ Union Payments Scanning QR codes
+-    ✅ P2P payments immediately
+
+
+
+----------
+
+## 🔑 Open Payments Integration
+
+### Core Concepts
+
+**1. Wallet Address Resolution**
+
+javascript
+
+```javascript
+const wallet = await client.walletAddress.get({ 
+  url: 'https://ilp.interledger-test.dev/user' 
+});
+// Returns: assetCode, authServer, resourceServer
+```
+
+**2. Interactive Authorization (GNAP)**
+
+javascript
+
+```javascript
+const grant = await client.grant.request({
+  access_token: {
+    access: [{ type: 'outgoing-payment', actions: ['create'] }]
+  },
+  interact: { start: ['redirect'] }  // User authorization
+});
+// Returns: redirectUrl for user consent
+```
+
+**3. Quote Generation**
+
+javascript
+
+```javascript
+const quote = await client.quote.create({
+  walletAddress: senderWallet.id,
+  receiver: incomingPayment.id
+});
+// debitAmount: 1,850.81 MXN → receiveAmount: 100.00 USD
+```
+
+**4. Payment Execution**
+
+javascript
+
+```javascript
+const outgoingPayment = await client.outgoingPayment.create({
+  walletAddress: senderWallet.id,
+  quoteId: quote.id
+});
+// Atomic ILP transfer
+```
+
+### Split Payment Flow
+
+javascript
+
+```javascript
+// 1. Create N incoming payments (one per recipient)
+const incomingPayments = await createMultipleIncomingPayments(recipients);
+
+// 2. Generate quotes for each
+const quotes = await createQuotesForAll(incomingPayments);
+
+// 3. Request SINGLE grant with total amount
+const totalAmount = quotes.reduce((sum, q) => sum + q.debitAmount, 0);
+const grant = await requestGrant({ limits: { debitAmount: totalAmount } });
+
+// 4. User authorizes ONCE
+
+// 5. Execute N outgoing payments in parallel
+await Promise.all(
+  quotes.map(q => createOutgoingPayment(q, grant.access_token))
+);
+```
+
+**Key Innovation:** Single authorization for multiple recipients using grant with `actions: ['create', 'read', 'list']`
 
 ---
 
-## Project Purpose
-
-Within the hackathon context, the goal was to integrate Open Payments into a backend that enables:
-
-- Payments between users (different wallets) without relying on a centralized provider.
-- Split Payments where a single amount is automatically distributed among multiple recipients.
-- End-user authorization via the interactive GNAP flow (redirect URL).
-- Persistence of transactions, states, and logs for traceability in Firestore.
-
-
-## Recursos
-[Resources](https://drive.google.com/drive/folders/1_oFnr9xJkG9FJCV80pUnZOVvM38BDrlm)
-
-## Table of Contents
-
-- Architecture
-- Configuration
-- Payment Flows
-- Open Payments Integration
-- State Management in Firestore
-- Security and Best Practices
-- Lessons and Challenges
-- References
-- Team
-
-## Architecture
-
-Main project structure:
-
+## 🏗️ Architecture
 ```
-backend/
-└─ src/
-   ├─ config/        # External services configuration
-   ├─ controllers/   # Endpoint entry logic
-   ├─ services/      # Business logic (Open Payments, Firestore, Redis)
-   ├─ routes/        # Express route definitions
-   ├─ middleware/    # Logging and error handling
-   └─ server.js      # Main entry point
+┌─────────────────────────────────────────────────────┐
+│  Frontend Web + Mobile (Flutter)                │
+└──────────────────┬──────────────────────────────────┘
+                   │ REST API
+┌──────────────────▼──────────────────────────────────┐
+│  Backend (Express + Open Payments SDK)              │
+│  ├─ P2P Payment Service                             │
+│  ├─ Split Payment Service                           │
+│  ├─ Union Payment Service                           │
+│  ├─ Query Service                                   │
+│  └─ Open Payments Client (GNAP auth)                │
+└──────────────┬────────────┬─────────────────────────┘
+               │            │
+    ┌──────────▼───┐   ┌───▼──────────┐
+    │  Firestore   │   │ Redis Cache  │
+    └──────────────┘   └──────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────┐
+│  Interledger Network (Rafiki)                       │
+│  ├─ Authorization Server (GNAP)                     │
+│  ├─ Resource Server                                 │
+│  └─ ILP Connectors                                  │
+└─────────────────────────────────────────────────────┘
 ```
 
-## Key Technologies
+----------
 
-- Express.js — Backend framework
-- @interledger/open-payments — Official SDK for Open Payments
-- Firestore (GCP) — Persistence for payments, grants, and logs
-- Redis — Cache and rate-limiting
-- Winston — Structured logging
-- Docker — Portable deployment environment
+## 🚀 Quick Start
 
-## Configuration
+### Prerequisites
 
-Create a `.env` file based on `env.example` and configure the required variables:
+-   Node.js 20+
+-   Docker
+-   GCP account
+-   Interledger wallet test (https://wallet.interledger-test.dev/)
 
-```env
-PORT=3000
-WALLET_ADDRESS_URL=https://ilp.interledger-test.dev/your_user
-PRIVATE_KEY_PATH=./keys/private-key.pem
-KEY_ID=my-key-id
-GOOGLE_APPLICATION_CREDENTIALS=credentials.json
-FIRESTORE_DATABASE_ID=opendb
-FRONTEND_URL=http://localhost:3001
-CALLBACK_BASE_URL=http://localhost:3000
-```
+### Setup
 
-## Installation and Run
+bash
 
 ```bash
+# Clone
+git clone https://github.com/whoAngeel/interledger-hackathon-2025.git
+cd Interledger_back
+
+# Install
 npm install
+
+# Configure .env
+cp .env.example .env
+# Edit .env with your credentials
+
+# Run locally
 npm run dev
-# or with Docker
+
+# Or with Docker
 npm run docker:dev
 ```
 
-## Payment Flows
+### Deploy to GCP
 
-Payments use the client → backend → Open Payments model. Both types (P2P and Split) require interactive authorization (GNAP).
+bash
 
-### P2P (Peer-to-Peer) Payment
+```bash
+# Create secrets
+gcloud secrets create interledger-private-key --data-file=dev.key
+gcloud secrets create interledger-datastore-sa --data-file=credentials.json
 
-1. Client → `POST /api/payments/initiate`
-2. Backend creates an incoming payment on the recipient's wallet
-3. Backend creates a quote and requests an interactive grant
-4. Returns `redirectUrl` to the client
-5. User authorizes in the wallet
-6. Client → `POST /api/payments/:id/complete`
-7. Backend finalizes the grant and creates an outgoing payment
+# Build and deploy
+docker build --platform linux/amd64 -f Dockerfile.production -t IMAGE_URL .
+docker push IMAGE_URL
+gcloud run deploy interledger-backend --image=IMAGE_URL --region=us-central1
+```
 
-#### Example request
+----------
 
-```json
+## 📊 API Examples
+
+### P2P Payment
+
+http
+
+```http
+POST /api/payments/initiate
 {
-  "senderWalletUrl": "https://ilp.interledger-test.dev/angeel",
-  "recipientWalletUrl": "https://ilp.interledger-test.dev/ronaldoelguapo",
-  "amount": { "value": "1000", "assetCode": "USD", "assetScale": 2 }
+  "senderWalletUrl": "https://ilp.interledger-test.dev/sender",
+  "recipientWalletUrl": "https://ilp.interledger-test.dev/recipient",
+  "amount": { "value": "10000", "assetCode": "USD", "assetScale": 2 }
 }
+
+Response:
+{
+  "paymentId": "uuid",
+  "redirectUrl": "https://auth.interledger-test.dev/interact/...",
+  "status": "PENDING_AUTHORIZATION",
+  "quote": {
+    "debitAmount": { "value": "185081", "assetCode": "MXN" },
+    "receiveAmount": { "value": "10000", "assetCode": "USD" }
+  }
+}
+
+# User authorizes at redirectUrl
+
+POST /api/payments/:paymentId/complete
+→ Status: COMPLETED
 ```
 
 ### Split Payment
 
-Allows splitting a payment among multiple recipients with a single authorization.
+http
 
-1. Client → `POST /api/split-payments/checkout`
-2. Backend creates multiple incoming payments (one per recipient)
-3. Requests a single interactive grant and returns `redirectUrl`
-4. User authorizes the split in the wallet
-5. Client → `POST /api/split-payments/:id/complete`
-6. Backend creates parallel outgoing payments
-7. Firestore updates the global state
-
-#### Example request
-
-```json
+```http
+POST /api/split-payments/checkout
 {
-  "senderWalletUrl": "https://ilp.interledger-test.dev/angeel",
+  "senderWalletUrl": "https://ilp.interledger-test.dev/sender",
+  "totalAmount": { "value": "10000", "assetCode": "USD" },
   "recipients": [
-    { "walletUrl": "https://ilp.interledger-test.dev/ronaldoelguapo", "percentage": 70 },
-    { "walletUrl": "https://ilp.interledger-test.dev/mochi", "percentage": 30 }
-  ],
-  "totalAmount": { "value": "1000", "assetCode": "USD", "assetScale": 2 }
+    { "walletUrl": "https://ilp.interledger-test.dev/guide", "percentage": 60 },
+    { "walletUrl": "https://ilp.interledger-test.dev/community", "percentage": 30 },
+    { "walletUrl": "https://ilp.interledger-test.dev/platform", "percentage": 10 }
+  ]
 }
+
+Response:
+{
+  "splitPaymentId": "uuid",
+  "redirectUrl": "https://auth.interledger-test.dev/interact/...",
+  "summary": {
+    "totalRecipients": 3,
+    "totalDebitAmount": { "value": "185081", "assetCode": "MXN" }
+  }
+}
+
+# User authorizes once for all recipients
+
+POST /api/split-payments/:splitPaymentId/complete
+→ 3 payments executed in parallel
 ```
 
-## Open Payments Integration
+----------
 
-The integration uses the official `@interledger/open-payments` SDK with private-key authentication and `keyId`, following GNAP.
+## 🎓 Key Learnings
 
-Example grant request (simplified):
+### Challenges Overcome
 
-```js
-await client.grant.request({ url: wallet.authServer }, {
-  access_token: { access: [{ type: 'quote', actions: ['create'] }] },
-  interact: { start: ['redirect'], finish: 'redirect' }
-});
-```
+1.  **GNAP Interactive Flow**
+    -   Managing grant lifecycle: request → user interaction → finalize
+    -   Handling grant expiration and refresh
+2.  **Split Payment Coordination**
+    -   Single authorization for multiple recipients
+    -   Parallel execution with partial failure handling
+    -   Atomic or partial success states
+3.  **Currency Conversion**
+    -   Real-time quotes with transparent exchange rates
+    -   Different asset scales (e.g., MXN scale=2, USD scale=2)
+4.  **Idempotency**
+    -   Preventing duplicate transactions on retry
+    -   Correlation IDs for distributed debugging
 
-## State Management in Firestore
+### Best Practices
 
-Each payment is stored with a state that reflects its lifecycle:
+-   ✅ State machine for payment lifecycle
+-   ✅ Exponential backoff with jitter for retries
+-   ✅ Circuit breaker for external API calls
+-   ✅ Comprehensive audit logs
+-   ✅ Rate limiting (100 req/min)
+-   ✅ Input validation with clear error messages
 
-- PENDING_AUTHORIZATION — Waiting for user confirmation
-- COMPLETED — Payment succeeded
-- PARTIAL — In split payments, some legs failed
-- FAILED — General error in the flow
+----------
 
-## Security and Best Practices
+## 📚 Resources
 
-- Rate limiting with Redis
-- Dynamically configured CORS
-- Helmet.js for secure headers
-- Thorough input validation
-- Structured logs for auditing (Winston)
-- Do not expose tokens or private keys in responses
+-   [Open Payments Guide](https://openpayments.guide/)
+-   [Interledger Protocol](https://interledger.org/)
+-   [GNAP Specification](https://datatracker.ietf.org/doc/html/draft-ietf-gnap-core-protocol)
+-   [Project Resources](https://drive.google.com/drive/folders/1_oFnr9xJkG9FJCV80pUnZOVvM38BDrlm)
 
-## Lessons and Challenges
+----------
 
-Challenges during the integration:
+## 🛠️ Tech Stack
 
-- Understanding the interactive GNAP flow and when to use grants vs direct tokens
-- Handling quote errors before authorization is completed
-- Coordinating Split Payments to ensure all recipients receive their share
-- Ensuring idempotency and auditability in Firestore
+-   **Backend:** Express.js, @interledger/open-payments
+-   **Database:** Firestore (GCP)
+-   **Cache:** Redis (Memorystore)
+-   **Frontend:** React, TailwindCSS
+-   **Mobile:** Flutter, NFC, QR
+-   **Infrastructure:** Docker, GCP Cloud Run
 
-Successfully executed P2P and Split payments in the test environment `https://ilp.interledger-test.dev/` with authorization and persistence.
+----------
 
-## References
+## 👥 Team - Los Vibecoders
 
-- Open Payments Guide
-- Interledger Protocol
-- GNAP Specification (IETF Draft)
+-   **[Ronaldo Acevedo Ojeda](https://www.linkedin.com/in/ronaldoacevedo/)** - Tech Lead & Backend
+-   **Amado Juvencio Jose Santiago** - Frontend & UX
+-   **[Angel Jesus Zorrilla Cuevas](https://www.linkedin.com/in/angel-jesus-zorrilla-cuevas-269a9b296/)** - Backend developer & DevOps
+-   **Oliver Caballero Silva** - Business & Product
 
-## Team
+----------
 
-### Los Vibecoders
-- [Ronaldo Acevedo Ojeda](https://www.linkedin.com/in/ronaldoacevedo/)
-- Amado Juvencio Jose Santiago
-- [Angel Jesus Zorrilla Cuevas](https://www.linkedin.com/in/angel-jesus-zorrilla-cuevas-269a9b296/)
-- Oliver Caballero Silva
+## 📜 License
 
+MIT License - See `LICENSE` file
