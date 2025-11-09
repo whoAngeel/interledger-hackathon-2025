@@ -18,6 +18,10 @@ Within the hackathon context, the goal was to integrate Open Payments into a bac
 - End-user authorization via the interactive GNAP flow (redirect URL).
 - Persistence of transactions, states, and logs for traceability in Firestore.
 
+
+## Recursos
+[Resources](https://drive.google.com/drive/folders/1_oFnr9xJkG9FJCV80pUnZOVvM38BDrlm)
+
 ## Table of Contents
 
 - Architecture
