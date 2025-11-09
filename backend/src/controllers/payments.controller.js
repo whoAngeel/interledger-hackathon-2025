@@ -33,7 +33,6 @@ class PaymentsController {
     }
   }
 
-
   // POST /api/payments/initiate - Iniciar un pago
   async initiatePayment(req, res, next) {
     try {
@@ -189,6 +188,75 @@ class PaymentsController {
       }
 
       return success(res, payment, "Payment status");
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // POST /api/payments/split
+  async initiateSplitPayment(req, res, next) {
+    try {
+      const { senderWalletUrl, recipients } = req.body;
+
+      if (
+        !senderWalletUrl ||
+        !Array.isArray(recipients) ||
+        recipients.length < 2
+      ) {
+        return error(
+          res,
+          "Se requieren senderWalletUrl y al menos 2 recipients",
+          400
+        );
+      }
+
+      // Generar ID del split payment
+      const paymentId = randomUUID();
+
+      log.info("Iniciando split payment:", {
+        paymentId,
+        senderWalletUrl,
+        recipients: recipients.map((r) => r.walletUrl),
+      });
+
+      // Log completo de recipients para debugging (no contiene secrets)
+      console.debug(
+        "[PaymentsController] recipients payload:",
+        JSON.stringify(recipients)
+      );
+
+      const splitFlow = await openPaymentsService.createSplitPayment(
+        senderWalletUrl,
+        recipients
+      );
+
+      // Guardar en Firestore
+      await firestoreService.create("splitPayments", paymentId, {
+        senderWalletUrl,
+        recipients,
+        status: "PENDING_AUTHORIZATION",
+        quoteId: splitFlow.quote.id,
+        incomingPayments: splitFlow.incomingPayments.map((i) => i.id),
+        continueUri: splitFlow.grantRequest.continueUri,
+        continueToken: splitFlow.grantRequest.continueToken,
+        redirectUrl: splitFlow.grantRequest.redirectUrl,
+        debitAmount: splitFlow.quote.debitAmount,
+      });
+
+      // Guardar en cache (opcional)
+      await cacheService.set(`split:${paymentId}`, splitFlow, 600);
+
+      return success(
+        res,
+        {
+          paymentId,
+          redirectUrl: splitFlow.grantRequest.redirectUrl,
+          quote: splitFlow.quote,
+          status: "PENDING_AUTHORIZATION",
+        },
+        "Split payment iniciado",
+        201
+      );
     } catch (err) {
       next(err);
     }

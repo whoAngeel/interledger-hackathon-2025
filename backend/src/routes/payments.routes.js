@@ -15,6 +15,11 @@ router.post(
   paymentsController.initiatePayment.bind(paymentsController)
 );
 
+// Iniciar un split payment
+router.post(
+  "/split",
+  paymentsController.initiateSplitPayment.bind(paymentsController)
+);
 // Completar un pago (después de autorización)
 router.post(
   "/:paymentId/complete",
