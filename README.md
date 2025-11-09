@@ -16,8 +16,8 @@ En el contexto del hackathon, el objetivo fue integrar Open Payments en un backe
 - Autorización del usuario final mediante el flujo interactivo de GNAP (redirect URL).
 - Persistencia de transacciones, estados y logs para trazabilidad en Firestore.
 
-  ## Recursos
-  [DRIVE](https://drive.google.com/drive/folders/1_oFnr9xJkG9FJCV80pUnZOVvM38BDrlm)
+## Recursos
+[ENlace para ver los recursos](https://drive.google.com/drive/folders/1_oFnr9xJkG9FJCV80pUnZOVvM38BDrlm)
 
 ## 📋 Tabla de contenidos
 
