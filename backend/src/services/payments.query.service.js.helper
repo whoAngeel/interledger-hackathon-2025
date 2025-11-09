@@ -1,0 +1,37 @@
+// Método auxiliar para consultar una colección específica
+  async _queryCollection(collectionName, { status, startDate, endDate, walletUrl }) {
+    let query = this.db.collection(collectionName);
+
+    // Aplicar filtros comunes
+    if (status) {
+      query = query.where("status", "==", status);
+    }
+    if (startDate) {
+      query = query.where("createdAt", ">=", startDate);
+    }
+    if (endDate) {
+      query = query.where("createdAt", "<=", endDate);
+    }
+
+    // Filtros específicos según el tipo de colección
+    if (walletUrl) {
+      if (collectionName === 'payments') {
+        // Para pagos normales, buscar en sender o recipient
+        query = query.where("senderWalletUrl", "==", walletUrl)
+          .union(query.where("recipientWalletUrl", "==", walletUrl));
+      } else {
+        // Para split payments, buscar en sender y array de recipients
+        query = query.where("senderWalletUrl", "==", walletUrl)
+          .union(query.where("recipients", "array-contains", { walletUrl }));
+      }
+    }
+
+    // Ordenar por fecha de creación descendente
+    query = query.orderBy("createdAt", "desc");
+
+    log.debug(`Ejecutando consulta en ${collectionName} con filtros:`, { status, startDate, endDate, walletUrl });
+    const snapshot = await query.get();
+    log.debug(`${collectionName}: encontrados ${snapshot.size} documentos`);
+
+    return snapshot;
+  }
