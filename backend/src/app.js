@@ -5,8 +5,10 @@ import rateLimit from "express-rate-limit";
 import { requestLogger } from "./middleware/requestHandler.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import healthRoutes from "./routes/health.routes.js";
-import paymentRoutes from "./routes/payments.routes.js";
 
+import paymentRoutes from "./routes/payments.routes.js";
+import splitPaymentRoutes from "./routes/splitpayments.routes.js";
+import paymentsQueryRoutes from "./routes/payments.query.routes.js";
 const app = express();
 
 // Security con helmet (configuración permisiva para desarrollo)
@@ -46,7 +48,9 @@ app.use(limiter);
 
 // Routes
 app.use("/", healthRoutes);
+app.use("/api/payments", paymentsQueryRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/split-payments", splitPaymentRoutes);
 
 // 404 handler (debe ir después de todas las rutas)
 app.use((req, res) => {
