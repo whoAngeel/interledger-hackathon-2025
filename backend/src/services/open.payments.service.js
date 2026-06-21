@@ -201,13 +201,26 @@ class OpenPaymentsService {
   }
 
   // Solicitar grant para outgoing payment (requiere interacción del usuario)
-  async requestOutgoingPaymentGrant(senderWalletUrl, quote) {
+  async requestOutgoingPaymentGrant(senderWalletUrl, quote, paymentId) {
     try {
       if (!this.client) this.initialize();
 
       log.info("Solicitando outgoing payment grant...");
 
       const senderWallet = await this.getWalletAddress(senderWalletUrl);
+      const callbackBaseUrl = process.env.CALLBACK_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+      const interact = {
+        start: ["redirect"],
+      };
+
+      if (paymentId) {
+        interact.finish = {
+          method: "redirect",
+          uri: `${callbackBaseUrl}/api/payments/callback?paymentId=${paymentId}`,
+          nonce: paymentId,
+        };
+      }
 
       const outgoingPaymentGrant = await this.client.grant.request(
         { url: senderWallet.authServer },
@@ -224,9 +237,7 @@ class OpenPaymentsService {
               },
             ],
           },
-          interact: {
-            start: ["redirect"],
-          },
+          interact,
         }
       );
 
@@ -245,16 +256,21 @@ class OpenPaymentsService {
   }
 
   // Finalizar grant de outgoing payment (después de autorización del usuario)
-  async finalizeOutgoingPaymentGrant(continueUri, continueToken) {
+  async finalizeOutgoingPaymentGrant(continueUri, continueToken, interactRef) {
     try {
       if (!this.client) this.initialize();
 
       log.info("Finalizando outgoing payment grant...");
 
-      const finalizedGrant = await this.client.grant.continue({
+      const continueParams = {
         url: continueUri,
         accessToken: continueToken,
-      });
+      };
+
+      const finalizedGrant = await this.client.grant.continue(
+        continueParams,
+        interactRef ? { interact_ref: interactRef } : undefined
+      );
 
       if (!isFinalizedGrant(finalizedGrant)) {
         throw new Error(
@@ -304,7 +320,7 @@ class OpenPaymentsService {
   }
 
   // Flujo completo de pago (sin autorización automática)
-  async initiatePayment(senderWalletUrl, recipientWalletUrl, amount) {
+  async initiatePayment(senderWalletUrl, recipientWalletUrl, amount, paymentId) {
     try {
       if (!this.client) this.initialize();
 
@@ -323,7 +339,8 @@ class OpenPaymentsService {
       // 3. Solicitar grant para outgoing payment
       const grantRequest = await this.requestOutgoingPaymentGrant(
         senderWalletUrl,
-        quote
+        quote,
+        paymentId
       );
 
       log.info("=== Flujo de pago iniciado, requiere autorización ===");
@@ -573,13 +590,14 @@ class OpenPaymentsService {
   /**
    * Solicitar grant único para múltiples outgoing payments
    */
-  async requestSplitOutgoingPaymentGrant(senderWalletUrl, quotes) {
+  async requestSplitOutgoingPaymentGrant(senderWalletUrl, quotes, splitPaymentId) {
     try {
       if (!this.client) this.initialize();
 
       log.info("=== Solicitando split outgoing payment grant ===");
 
       const senderWallet = await this.getWalletAddress(senderWalletUrl);
+      const callbackBaseUrl = process.env.CALLBACK_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
       // Calcular el monto total de débito
       const totalDebitAmount = quotes.reduce(
@@ -603,6 +621,18 @@ class OpenPaymentsService {
         `Total debit amount: ${totalDebitAmount.value} ${totalDebitAmount.assetCode}`
       );
 
+      const interact = {
+        start: ["redirect"],
+      };
+
+      if (splitPaymentId) {
+        interact.finish = {
+          method: "redirect",
+          uri: `${callbackBaseUrl}/api/split-payments/callback?splitPaymentId=${splitPaymentId}`,
+          nonce: splitPaymentId,
+        };
+      }
+
       // Solicitar grant único que cubra todos los pagos
       const outgoingPaymentGrant = await this.client.grant.request(
         { url: senderWallet.authServer },
@@ -619,10 +649,7 @@ class OpenPaymentsService {
               },
             ],
           },
-          interact: {
-            start: ["redirect"],
-
-          },
+          interact,
         }
       );
 
@@ -724,7 +751,7 @@ class OpenPaymentsService {
   /**
    * Flujo completo de split payment
    */
-  async initiateSplitPayment(senderWalletUrl, recipients, totalAmount) {
+  async initiateSplitPayment(senderWalletUrl, recipients, totalAmount, splitPaymentId) {
     try {
       if (!this.client) this.initialize();
 
@@ -757,7 +784,8 @@ class OpenPaymentsService {
       // 3. Solicitar grant único para todos los outgoing payments
       const grantRequest = await this.requestSplitOutgoingPaymentGrant(
         senderWalletUrl,
-        quotes
+        quotes,
+        splitPaymentId
       );
 
       log.info(

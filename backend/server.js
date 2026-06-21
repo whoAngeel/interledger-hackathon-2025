@@ -1,9 +1,9 @@
 import dotenv from "dotenv";
 import app from "./src/app.js";
 import { initializeRedis } from "./src/config/redis.js";
-import { initializeFirestore } from "./src/config/firestore.js";
+import { initializeMongo } from "./src/config/mongo.js";
 import { initializeOpenPayments } from "./src/config/openPayments.js";
-import firestoreService from "./src/services/firestore.service.js";
+import mongoService from "./src/services/mongo.service.js";
 import cacheService from "./src/services/cache.service.js";
 import openPaymentsService from "./src/services/open.payments.service.js";
 import log from "./src/utils/logger.js";
@@ -17,12 +17,12 @@ async function startServer() {
     log.info("🚀 Inicializando servicios...");
 
     // Inicializar conexiones
-    await initializeFirestore();
+    await initializeMongo();
     await initializeRedis();
     await initializeOpenPayments();
 
     // Inicializar servicios
-    firestoreService.initialize();
+    mongoService.initialize();
     cacheService.initialize();
     openPaymentsService.initialize();
 

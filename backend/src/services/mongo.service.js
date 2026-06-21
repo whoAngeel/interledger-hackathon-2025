@@ -1,69 +1,77 @@
-// services/firestoreService.js
-import { getDb } from "../config/firestore.js";
-import log from "../utils/logger.js"; // Asumimos que tienes un logger; si no, puedes usar console.log
+import { getDb } from "../config/mongo.js";
+import log from "../utils/logger.js";
+import { ObjectId } from "mongodb";
 
-class FirestoreService {
+const OPERATOR_MAP = {
+  "==": "$eq",
+  ">=": "$gte",
+  "<=": "$lte",
+  ">": "$gt",
+  "<": "$lt",
+  "!=": "$ne",
+};
+
+class MongoService {
   constructor() {
-    // No obtener la DB en la importación: se inicializa explícitamente
-    // desde `server.js` llamando a firestoreService.initialize()
     this.db = null;
   }
 
   initialize() {
-    // Lanza si initializeFirestore() no se llamó antes
     this.db = getDb();
-    log.info?.("✅ FirestoreService inicializado");
+    log.info?.("✅ MongoService inicializado");
   }
 
-  // Crear documento
   async create(collection, id, data) {
     try {
       if (!this.db)
         throw new Error(
-          "FirestoreService no inicializado. Llama a firestoreService.initialize() después de initializeFirestore()."
+          "MongoService no inicializado. Llama a mongoService.initialize() después de initializeMongo()."
         );
-      const docRef = this.db.collection(collection).doc(id);
-      await docRef.set({
+      const doc = {
+        _id: id,
         ...data,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
+      };
+      await this.db.collection(collection).insertOne(doc);
       log.info?.(`✅ Documento creado en ${collection}/${id}`);
-      return { id, ...data };
+      const { _id, ...rest } = doc;
+      return { id: _id, ...rest };
     } catch (error) {
       log.error?.(`❌ Error creando documento en ${collection}:`, error);
       throw error;
     }
   }
 
-  // Obtener documento por ID
   async getById(collection, id) {
     try {
       if (!this.db)
         throw new Error(
-          "FirestoreService no inicializado. Llama a firestoreService.initialize() después de initializeFirestore()."
+          "MongoService no inicializado. Llama a mongoService.initialize() después de initializeMongo()."
         );
-      const doc = await this.db.collection(collection).doc(id).get();
-      if (!doc.exists) return null;
-      return { id: doc.id, ...doc.data() };
+      const doc = await this.db.collection(collection).findOne({ _id: id });
+      if (!doc) return null;
+      const { _id, ...rest } = doc;
+      return { id: _id, ...rest };
     } catch (error) {
       log.error?.(`❌ Error obteniendo documento ${collection}/${id}:`, error);
       throw error;
     }
   }
 
-  // Actualizar documento
   async update(collection, id, data) {
     try {
       if (!this.db)
         throw new Error(
-          "FirestoreService no inicializado. Llama a firestoreService.initialize() después de initializeFirestore()."
+          "MongoService no inicializado. Llama a mongoService.initialize() después de initializeMongo()."
         );
-      const docRef = this.db.collection(collection).doc(id);
-      await docRef.update({
+      const updateData = {
         ...data,
         updatedAt: new Date().toISOString(),
-      });
+      };
+      await this.db
+        .collection(collection)
+        .updateOne({ _id: id }, { $set: updateData });
       log.info?.(`✅ Documento actualizado en ${collection}/${id}`);
       return { id, ...data };
     } catch (error) {
@@ -72,33 +80,39 @@ class FirestoreService {
     }
   }
 
-  // Consulta con filtros
   async query(collection, filters = []) {
     try {
       if (!this.db)
         throw new Error(
-          "FirestoreService no inicializado. Llama a firestoreService.initialize() después de initializeFirestore()."
+          "MongoService no inicializado. Llama a mongoService.initialize() después de initializeMongo()."
         );
-      let query = this.db.collection(collection);
 
+      const mongoFilter = {};
       for (const f of filters) {
-        query = query.where(f.field, f.operator, f.value);
+        const op = OPERATOR_MAP[f.operator] || "$eq";
+        if (op === "$eq") {
+          mongoFilter[f.field] = f.value;
+        } else {
+          if (!mongoFilter[f.field]) mongoFilter[f.field] = {};
+          mongoFilter[f.field][op] = f.value;
+        }
       }
 
-      const snapshot = await query.get();
-      const results = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const docs = await this.db
+        .collection(collection)
+        .find(mongoFilter)
+        .toArray();
 
-      return results;
+      return docs.map((doc) => {
+        const { _id, ...rest } = doc;
+        return { id: _id, ...rest };
+      });
     } catch (error) {
       log.error?.(`❌ Error en query de ${collection}:`, error);
       throw error;
     }
   }
 
-  // Eliminar documento (soft delete)
   async softDelete(collection, id) {
     try {
       await this.update(collection, id, {
@@ -114,4 +128,4 @@ class FirestoreService {
   }
 }
 
-export default new FirestoreService();
+export default new MongoService();

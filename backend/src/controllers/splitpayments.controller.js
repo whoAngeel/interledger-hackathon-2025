@@ -1,5 +1,5 @@
 import openPaymentsService from "../services/open.payments.service.js";
-import firestoreService from "../services/firestore.service.js";
+import mongoService from "../services/mongo.service.js";
 import cacheService from "../services/cache.service.js";
 import { success, error } from "../utils/response.js";
 import log from "../utils/logger.js";
@@ -71,11 +71,12 @@ class SplitPaymentsController {
       const splitFlow = await openPaymentsService.initiateSplitPayment(
         senderWalletUrl,
         recipients,
-        totalAmount
+        totalAmount,
+        splitPaymentId
       );
 
       // Guardar en Firestore (igual que P2P)
-      await firestoreService.create("split_payments", splitPaymentId, {
+      await mongoService.create("split_payments", splitPaymentId, {
         senderWalletUrl,
         recipients,
         totalAmount,
@@ -135,7 +136,7 @@ class SplitPaymentsController {
       log.info("Completando split payment:", { splitPaymentId });
 
       // Obtener datos del split payment
-      const splitPayment = await firestoreService.getById(
+      const splitPayment = await mongoService.getById(
         "split_payments",
         splitPaymentId
       );
@@ -192,7 +193,7 @@ class SplitPaymentsController {
       }
 
       // Actualizar en Firestore (igual que P2P)
-      await firestoreService.update("split_payments", splitPaymentId, {
+      await mongoService.update("split_payments", splitPaymentId, {
         status: finalStatus,
         outgoingPayments: outgoingPayments.map((op) => ({
           recipient: op.recipient,
@@ -242,7 +243,7 @@ class SplitPaymentsController {
     } catch (err) {
       // Marcar como fallido
       try {
-        await firestoreService.update(
+        await mongoService.update(
           "split_payments",
           req.params.splitPaymentId,
           {
@@ -275,7 +276,7 @@ class SplitPaymentsController {
       log.info("Callback recibido:", { interact_ref, hash, splitPaymentId });
 
       // Obtener split payment
-      const splitPayment = await firestoreService.getById(
+      const splitPayment = await mongoService.getById(
         "split_payments",
         splitPaymentId
       );
@@ -292,12 +293,12 @@ class SplitPaymentsController {
         );
       }
 
-      // Usar el mismo flujo que completeSplitPayment
-      // Finalizar grant
+      // Finalizar grant pasando interact_ref del callback
       const finalizedGrant =
         await openPaymentsService.finalizeOutgoingPaymentGrant(
           splitPayment.continueUri,
-          splitPayment.continueToken
+          splitPayment.continueToken,
+          interact_ref
         );
 
       // Crear múltiples outgoing payments
@@ -333,7 +334,7 @@ class SplitPaymentsController {
       }
 
       // Actualizar en Firestore
-      await firestoreService.update("split_payments", splitPaymentId, {
+      await mongoService.update("split_payments", splitPaymentId, {
         status: finalStatus,
         outgoingPayments: outgoingPayments.map((op) => ({
           recipient: op.recipient,
@@ -354,39 +355,16 @@ class SplitPaymentsController {
       // Limpiar cache
       await cacheService.delete(`split_payment:${splitPaymentId}`);
 
-      return success(
-        res,
-        {
-          splitPaymentId,
-          status: finalStatus,
-          outgoingPayments: outgoingPayments.map((op) => ({
-            recipient: op.recipient,
-            percentage: op.percentage,
-            outgoingPayment: op.outgoingPayment,
-          })),
-          errors: errors.length > 0 ? errors : undefined,
-          summary: {
-            total: splitPayment.quotes.length,
-            successful: outgoingPayments.filter(
-              (op) => !op.outgoingPayment.failed
-            ).length,
-            failed: outgoingPayments.filter((op) => op.outgoingPayment.failed)
-              .length,
-            errors: errors.length,
-          },
-        },
-        finalStatus === "FAILED"
-          ? "Split payment falló completamente"
-          : finalStatus === "PARTIAL"
-            ? "Split payment completado parcialmente"
-            : "Split payment completado exitosamente"
-      );
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const redirectUrl = `${frontendUrl}/?status=${finalStatus}&splitPaymentId=${splitPaymentId}`;
+
+      return res.redirect(redirectUrl);
     } catch (err) {
       log.error("Error en callback de split payment:", err);
       // Intentar marcar como fallido si tenemos el ID
       if (req.query.splitPaymentId) {
         try {
-          await firestoreService.update(
+          await mongoService.update(
             "split_payments",
             req.query.splitPaymentId,
             {
@@ -414,7 +392,7 @@ class SplitPaymentsController {
         return success(res, cached, "Split payment status (cached)");
       }
 
-      const splitPayment = await firestoreService.getById(
+      const splitPayment = await mongoService.getById(
         "split_payments",
         splitPaymentId
       );

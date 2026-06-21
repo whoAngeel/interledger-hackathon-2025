@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { requestLogger } from "./middleware/requestHandler.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import healthRoutes from "./routes/health.routes.js";
@@ -11,6 +13,10 @@ import splitPaymentRoutes from "./routes/splitpayments.routes.js";
 import paymentsQueryRoutes from "./routes/payments.query.routes.js";
 import fxRoutes from "./routes/fx.routes.js";
 import openPaymentsRoutes from "./routes/openpayments.routes.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
 
 // Security con helmet (configuración permisiva para desarrollo)
@@ -18,6 +24,7 @@ app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: { policy: "unsafe-none" },
+    contentSecurityPolicy: false,
   })
 );
 
@@ -47,6 +54,9 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(limiter);
+
+// Static test console
+app.use(express.static(join(__dirname, "..", "public")));
 
 // Routes
 app.use("/", healthRoutes);

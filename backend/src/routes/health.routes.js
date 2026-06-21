@@ -1,5 +1,6 @@
 import express from "express";
 import { getRedisClient } from "../config/redis.js";
+import { getDb } from "../config/mongo.js";
 import { success, error } from "../utils/response.js";
 
 const router = express.Router();
@@ -9,12 +10,12 @@ router.get("/health", (req, res) => {
   success(res, { status: "OK" }, "Server is running");
 });
 
-// Health check completo (Redis, Firestore)
+// Health check completo (Redis, MongoDB)
 router.get("/health/full", async (req, res) => {
   const health = {
     server: "OK",
     redis: "NOT_CHECKED",
-    firestore: "NOT_CHECKED",
+    mongo: "NOT_CHECKED",
     timestamp: new Date().toISOString(),
   };
 
@@ -28,9 +29,17 @@ router.get("/health/full", async (req, res) => {
       health.redis = "DISCONNECTED";
     }
 
-    const allHealthy = Object.values(health).every(
-      (v) => v === "OK" || v === new Date().toISOString()
-    );
+    // Check MongoDB
+    try {
+      const db = getDb();
+      await db.command({ ping: 1 });
+      health.mongo = "OK";
+    } catch {
+      health.mongo = "DISCONNECTED";
+    }
+
+    const checks = { server: health.server, redis: health.redis, mongo: health.mongo };
+    const allHealthy = Object.values(checks).every((v) => v === "OK");
 
     if (allHealthy) {
       return success(res, health, "All systems operational");

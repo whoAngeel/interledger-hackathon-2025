@@ -166,3 +166,5 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/go,nodebackend/credentials.json
 backend/credentials.json
+backend/dev.key
+backend/.env.production

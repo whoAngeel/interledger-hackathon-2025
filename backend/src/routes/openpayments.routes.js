@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { success, error } from "../utils/response.js";
 import { getOPClient } from "../config/openPayments.js";
 import openPaymentsService from "../services/open.payments.service.js";
-import { putState, takeState } from "../utils/state.js";
+import mongoService from "../services/mongo.service.js";
 
 const router = express.Router();
 
@@ -43,6 +43,8 @@ router.post("/split/group-checkout", async (req, res) => {
         )
       )
     );
+
+    const groupId = crypto.randomUUID();
     const results = await Promise.all(
       payerWAs.map(async (payerWA, i) => {
         const quoteGrant = await client.grant.request(
@@ -59,11 +61,25 @@ router.post("/split/group-checkout", async (req, res) => {
           { url: payerWA.authServer },
           { access_token: { access: [{ type: "outgoing-payment", actions: ["create"], identifier: payerWA.id, limits: { debitAmount: { value: quote.debitAmount.value, assetCode: payerWA.assetCode, assetScale: payerWA.assetScale } } }] }, interact: { start: ["redirect"], finish: { method: "redirect", uri: interactRedirectUri, nonce } } }
         );
-        putState(nonce, { customerWA: payerWA, merchantWA, quoteMerchant: quote, grantContinue: outgoingGrantInit.continue });
+
+        await mongoService.create("group_checkout_sessions", nonce, {
+          groupId,
+          payer: payerWA.id,
+          customerWA: payerWA,
+          merchantWA,
+          quote,
+          continueUri: outgoingGrantInit.continue.uri,
+          continueToken: outgoingGrantInit.continue.access_token.value,
+          shareMinor: shares[i],
+          status: "PENDING_AUTHORIZATION",
+          createdAt: new Date().toISOString(),
+        });
+
         return { payer: payerWA.id, shareMinor: shares[i], redirectUrl: outgoingGrantInit.interact.redirect, nonce };
       })
     );
-    return success(res, { merchant: merchantWA.id, totalMinor: total, count: payerWAs.length, results }, "group-checkout");
+
+    return success(res, { groupId, merchant: merchantWA.id, totalMinor: total, count: payerWAs.length, results }, "group-checkout");
   } catch (e) {
     return error(res, e?.message || "internal-error", 500);
   }
@@ -73,22 +89,31 @@ router.get("/op/callback", async (req, res) => {
   try {
     const { interact_ref, nonce } = req.query || {};
     if (!interact_ref || !nonce) return error(res, "interact_ref y nonce requeridos", 400);
-    const ctx = takeState(nonce);
-    if (!ctx) return error(res, "flujo no encontrado", 400);
+
+    const session = await mongoService.getById("group_checkout_sessions", nonce);
+    if (!session) return error(res, "flujo no encontrado", 400);
+
     const client = getOPClient();
     const continued = await client.grant.continue(
-      { url: ctx.grantContinue.uri, accessToken: ctx.grantContinue.access_token.value },
+      { url: session.continueUri, accessToken: session.continueToken },
       { interact_ref }
     );
     const result = await client.outgoingPayment.create(
-      { url: ctx.customerWA.resourceServer, accessToken: continued.access_token.value },
-      { walletAddress: ctx.customerWA.id, quoteId: ctx.quoteMerchant.id }
+      { url: session.customerWA.resourceServer, accessToken: continued.access_token.value },
+      { walletAddress: session.customerWA.id, quoteId: session.quote.id }
     );
-    return success(res, { status: "ok", payer: ctx.customerWA.id, outgoingPayment: result }, "callback");
+
+    await mongoService.update("group_checkout_sessions", nonce, {
+      status: result.failed ? "FAILED" : "COMPLETED",
+      outgoingPaymentId: result.id,
+      completedAt: new Date().toISOString(),
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    return res.redirect(`${frontendUrl}/?groupStatus=${result.failed ? "FAILED" : "COMPLETED"}&groupId=${session.groupId}&payer=${session.payer}`);
   } catch (e) {
     return error(res, e?.message || "internal-error", 500);
   }
 });
 
 export default router;
-

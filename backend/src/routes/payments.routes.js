@@ -15,6 +15,12 @@ router.post(
   paymentsController.initiatePayment.bind(paymentsController)
 );
 
+// Callback automático después de autorización
+router.get(
+  "/callback",
+  paymentsController.handleCallback.bind(paymentsController)
+);
+
 // Iniciar un split payment
 router.post(
   "/split",

@@ -1,5 +1,5 @@
 import openPaymentsService from "../services/open.payments.service.js";
-import firestoreService from "../services/firestore.service.js";
+import mongoService from "../services/mongo.service.js";
 import cacheService from "../services/cache.service.js";
 import { success, error } from "../utils/response.js";
 import log from "../utils/logger.js";
@@ -62,11 +62,12 @@ class PaymentsController {
       const paymentFlow = await openPaymentsService.initiatePayment(
         senderWalletUrl,
         recipientWalletUrl,
-        amount
+        amount,
+        paymentId
       );
 
       // Guardar en Firestore
-      await firestoreService.create("payments", paymentId, {
+      await mongoService.create("payments", paymentId, {
         senderWalletUrl,
         recipientWalletUrl,
         amount,
@@ -111,7 +112,7 @@ class PaymentsController {
       log.info("Completando pago:", { paymentId });
 
       // Obtener datos del pago de Firestore
-      const payment = await firestoreService.getById("payments", paymentId);
+      const payment = await mongoService.getById("payments", paymentId);
 
       if (!payment) {
         return error(res, "Pago no encontrado", 404);
@@ -136,7 +137,7 @@ class PaymentsController {
       );
 
       // Actualizar en Firestore
-      await firestoreService.update("payments", paymentId, {
+      await mongoService.update("payments", paymentId, {
         status: outgoingPayment.failed ? "FAILED" : "COMPLETED",
         outgoingPaymentId: outgoingPayment.id,
         completedAt: new Date().toISOString(),
@@ -158,7 +159,7 @@ class PaymentsController {
     } catch (err) {
       // Marcar como fallido en caso de error
       try {
-        await firestoreService.update("payments", req.params.paymentId, {
+        await mongoService.update("payments", req.params.paymentId, {
           status: "FAILED",
           error: err.message,
           failedAt: new Date().toISOString(),
@@ -181,7 +182,7 @@ class PaymentsController {
         return success(res, cached, "Payment status (cached)");
       }
 
-      const payment = await firestoreService.getById("payments", paymentId);
+      const payment = await mongoService.getById("payments", paymentId);
 
       if (!payment) {
         return error(res, "Pago no encontrado", 404);
@@ -231,7 +232,7 @@ class PaymentsController {
       );
 
       // Guardar en Firestore
-      await firestoreService.create("splitPayments", paymentId, {
+      await mongoService.create("splitPayments", paymentId, {
         senderWalletUrl,
         recipients,
         status: "PENDING_AUTHORIZATION",
@@ -258,6 +259,63 @@ class PaymentsController {
         201
       );
     } catch (err) {
+      next(err);
+    }
+  }
+
+  // GET /api/payments/callback - Callback automático después de autorización
+  async handleCallback(req, res, next) {
+    try {
+      const { interact_ref, paymentId } = req.query;
+
+      if (!interact_ref || !paymentId) {
+        return error(res, "interact_ref y paymentId requeridos", 400);
+      }
+
+      log.info("Callback P2P recibido:", { interact_ref, paymentId });
+
+      const payment = await mongoService.getById("payments", paymentId);
+
+      if (!payment) {
+        return error(res, "Pago no encontrado", 404);
+      }
+
+      if (payment.status !== "PENDING_AUTHORIZATION") {
+        return error(res, `El pago ya está en estado: ${payment.status}`, 400);
+      }
+
+      const finalizedGrant =
+        await openPaymentsService.finalizeOutgoingPaymentGrant(
+          payment.continueUri,
+          payment.continueToken,
+          interact_ref
+        );
+
+      const outgoingPayment = await openPaymentsService.createOutgoingPayment(
+        payment.senderWalletUrl,
+        payment.quoteId,
+        finalizedGrant.access_token.value
+      );
+
+      await mongoService.update("payments", paymentId, {
+        status: outgoingPayment.failed ? "FAILED" : "COMPLETED",
+        outgoingPaymentId: outgoingPayment.id,
+        completedAt: new Date().toISOString(),
+        outgoingPayment,
+      });
+
+      await cacheService.delete(`payment:${paymentId}`);
+
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      return res.redirect(`${frontendUrl}/?status=${outgoingPayment.failed ? "FAILED" : "COMPLETED"}&paymentId=${paymentId}`);
+    } catch (err) {
+      try {
+        await mongoService.update("payments", req.query.paymentId, {
+          status: "FAILED",
+          error: err.message,
+          failedAt: new Date().toISOString(),
+        });
+      } catch {}
       next(err);
     }
   }

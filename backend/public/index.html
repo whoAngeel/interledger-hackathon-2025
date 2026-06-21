@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interledger Payments — Test Console</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --red: #f85149; --yellow: #d2991d; --purple: #a371f7; --orange: #d2991d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: ui-monospace, 'Cascadia Code', monospace; background: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  h2 { font-size: 1rem; color: var(--accent); margin: 16px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 6px 6px 0 0; cursor: pointer; font-size: 0.82rem; font-weight: 600; background: var(--surface); color: var(--muted); border-bottom: none; }
+  .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  label { display: block; font-size: 0.75rem; color: var(--muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  input, select { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 0.85rem; }
+  input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(88,166,255,0.2); }
+  .row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 80px; }
+  button { padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; font-family: inherit; transition: all 0.15s; }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #000; width: 100%; margin-top: 16px; }
+  .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-purple { background: var(--purple); color: #fff; }
+  .btn-orange { background: var(--orange); color: #000; }
+  .btn-big { padding: 14px 24px; font-size: 0.95rem; width: 100%; text-align: center; display: block; text-decoration: none; border-radius: 8px; cursor: pointer; font-weight: 700; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-size: 0.78rem; overflow-x: auto; max-height: 350px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 0.7rem; font-weight: 700; }
+  .status-PENDING { background: rgba(210,153,29,0.2); color: var(--yellow); }
+  .status-COMPLETED { background: rgba(63,185,80,0.2); color: var(--green); }
+  .status-FAILED { background: rgba(248,81,73,0.2); color: var(--red); }
+  .status-PARTIAL { background: rgba(210,153,29,0.2); color: var(--yellow); }
+  .mt { margin-top: 12px; }
+  .mb { margin-bottom: 12px; }
+  .muted { color: var(--muted); font-size: 0.78rem; }
+  .payer-row { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+  .recipient-row { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+  .endpoint { font-size: 0.72rem; color: var(--muted); margin-bottom: 8px; }
+  #log { max-height: 150px; }
+  #splitActions, #groupActions { display: none; }
+  #splitActions.show, #groupActions.show { display: block; }
+  .step-num { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #000; text-align: center; line-height: 22px; font-size: 0.7rem; font-weight: 700; margin-right: 6px; }
+  .step-done { background: var(--green); }
+  .notice { background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); border-radius: 6px; padding: 12px; margin-top: 12px; font-size: 0.78rem; line-height: 1.5; }
+  .result-item { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+  .result-item a { color: var(--accent); word-break: break-all; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🌍 Interledger Payments — Test Console</h1>
+  <span><span id="serverStatus" class="status-badge status-PENDING">●</span></span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('split')">Split Payment</div>
+  <div class="tab" onclick="switchTab('group')">Group Checkout</div>
+  <div class="tab" onclick="switchTab('p2p')">P2P Payment</div>
+</div>
+
+<!-- ============ SPLIT PAYMENT TAB ============ -->
+<div id="tab-split" class="tab-content active">
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2><span class="step-num" id="s-step1num">1</span> Checkout</h2>
+      <p class="endpoint">POST /api/split-payments/checkout</p>
+      <label>Sender Wallet</label>
+      <input id="s-sender" value="https://ilp.interledger-test.dev/angeel">
+      <label>Total Amount</label>
+      <div class="row">
+        <div><input id="s-value" value="100" placeholder="amount"></div>
+        <div><input id="s-assetCode" value="USD" style="width:80px"></div>
+        <div><input id="s-assetScale" value="2" type="number" style="width:60px"></div>
+      </div>
+      <label>Recipients</label>
+      <div id="s-recipients">
+        <div class="recipient-row"><div class="row">
+          <div style="flex:3"><input class="s-rwallet" value="https://ilp.interledger-test.dev/mochi"></div>
+          <div style="flex:1"><input class="s-rpct" value="60" type="number" min="0" max="100"></div>
+          <div><button class="btn-sm btn-danger" onclick="removeRow(this)">✕</button></div>
+        </div></div>
+        <div class="recipient-row"><div class="row">
+          <div style="flex:3"><input class="s-rwallet" value="https://ilp.interledger-test.dev/5d3a080c"></div>
+          <div style="flex:1"><input class="s-rpct" value="40" type="number" min="0" max="100"></div>
+          <div><button class="btn-sm btn-danger" onclick="removeRow(this)">✕</button></div>
+        </div></div>
+      </div>
+      <button class="btn-outline btn-sm mt" onclick="addSplitRecipient()">+ Add Recipient</button>
+      <button class="btn-primary" id="s-checkoutBtn" onclick="splitCheckout()">1. Checkout</button>
+    </div>
+
+    <div id="splitActions">
+      <div class="card mt">
+        <h2><span class="step-num">2</span> Authorize</h2>
+        <a id="s-redirectLink" href="#" target="_blank" class="btn-big btn-purple" style="word-break:break-all; font-size:0.8rem;">🔗 Open Authorization →</a>
+        <div class="notice">
+          <b>Auto-complete active.</b> After clicking Allow you'll be redirected back.
+          <br><span class="muted">ID: <code id="s-activeId" style="color:var(--accent)">—</code></span>
+          <br><span class="muted">Status: </span><span id="s-activeStatus" class="status-badge status-PENDING">PENDING</span>
+        </div>
+      </div>
+      <div class="card mt">
+        <h2><span class="step-num">3</span> Verify</h2>
+        <div class="row">
+          <button class="btn-outline btn-sm" onclick="splitGetStatus()">Check</button>
+          <button class="btn-green btn-sm" onclick="splitComplete()">Manual Complete</button>
+          <button class="btn-outline btn-sm" onclick="resetSplitFlow()">New</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="card"><h2>Response</h2><pre id="s-response">// Click Checkout</pre></div>
+    <div class="card mt"><h2>History</h2>
+      <div class="row mb">
+        <button class="btn-outline btn-sm" onclick="loadHistory()">List</button>
+        <button class="btn-outline btn-sm" onclick="loadStats()">Stats</button>
+      </div>
+      <pre id="s-history">// Click List</pre>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ GROUP CHECKOUT TAB ============ -->
+<div id="tab-group" class="tab-content">
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2><span class="step-num" id="g-step1num">1</span> Create</h2>
+      <p class="endpoint">POST /api/split/group-checkout</p>
+      <label>Merchant Wallet (recibe el total)</label>
+      <input id="g-merchant" value="https://ilp.interledger-test.dev/angeel">
+      <label>Total Amount (minor units, entero)</label>
+      <input id="g-total" value="500" placeholder="500 = 5.00 si scale=2">
+      <label>Payer Wallets (cada uno paga parte igual)</label>
+      <div id="g-payers">
+        <div class="payer-row"><div class="row">
+          <div style="flex:1"><input class="g-payer" value="https://ilp.interledger-test.dev/mochi"></div>
+          <div><button class="btn-sm btn-danger" onclick="removeRow(this)">✕</button></div>
+        </div></div>
+        <div class="payer-row"><div class="row">
+          <div style="flex:1"><input class="g-payer" value="https://ilp.interledger-test.dev/5d3a080c"></div>
+          <div><button class="btn-sm btn-danger" onclick="removeRow(this)">✕</button></div>
+        </div></div>
+      </div>
+      <button class="btn-outline btn-sm mt" onclick="addGroupPayer()">+ Add Payer</button>
+      <button class="btn-primary" id="g-checkoutBtn" onclick="groupCheckout()">1. Create Group</button>
+    </div>
+
+    <div id="groupActions">
+      <div class="card mt">
+        <h2><span class="step-num">2</span> Authorize (each payer)</h2>
+        <p class="muted mb">Each payer must authorize individually. Click each link:</p>
+        <div id="g-redirects"></div>
+      </div>
+      <div class="card mt">
+        <h2><span class="step-num">3</span> Verify</h2>
+        <div class="row">
+          <button class="btn-outline btn-sm" onclick="resetGroupFlow()">New Group</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="card"><h2>Response</h2><pre id="g-response">// Click Create Group</pre></div>
+    <div class="card mt"><h2>Log</h2><pre id="log">Ready.</pre></div>
+  </div>
+</div>
+</div>
+
+<!-- ============ P2P PAYMENT TAB ============ -->
+<div id="tab-p2p" class="tab-content">
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2><span class="step-num" id="p-step1num">1</span> Initiate</h2>
+      <p class="endpoint">POST /api/payments/initiate</p>
+
+      <label>Sender Wallet</label>
+      <input id="p-sender" value="https://ilp.interledger-test.dev/angeel">
+
+      <label>Recipient Wallet</label>
+      <input id="p-recipient" value="https://ilp.interledger-test.dev/mochi">
+
+      <label>Amount</label>
+      <div class="row">
+        <div><input id="p-value" value="100" placeholder="amount"></div>
+        <div><input id="p-assetCode" value="USD" style="width:80px"></div>
+        <div><input id="p-assetScale" value="2" type="number" style="width:60px"></div>
+      </div>
+
+      <button class="btn-primary" id="p-checkoutBtn" onclick="p2pCheckout()">1. Initiate Payment</button>
+    </div>
+
+    <div id="p2pActions">
+      <div class="card mt">
+        <h2><span class="step-num">2</span> Authorize</h2>
+        <a id="p-redirectLink" href="#" target="_blank" class="btn-big btn-purple" style="word-break:break-all; font-size:0.8rem;">🔗 Open Authorization →</a>
+        <div class="notice">
+          <b>Auto-complete active.</b> After clicking Allow you'll be redirected back.
+          <br><span class="muted">ID: <code id="p-activeId" style="color:var(--accent)">—</code></span>
+          <br><span class="muted">Status: </span><span id="p-activeStatus" class="status-badge status-PENDING">PENDING</span>
+        </div>
+      </div>
+      <div class="card mt">
+        <h2><span class="step-num">3</span> Verify</h2>
+        <div class="row">
+          <button class="btn-outline btn-sm" onclick="p2pGetStatus()">Check</button>
+          <button class="btn-green btn-sm" onclick="p2pComplete()">Manual Complete</button>
+          <button class="btn-outline btn-sm" onclick="resetP2PFlow()">New</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="card"><h2>Response</h2><pre id="p-response">// Click Initiate</pre></div>
+    <div class="card mt"><h2>Log</h2><pre id="log">Ready.</pre></div>
+  </div>
+</div>
+</div>
+
+<script>
+const API = window.location.origin;
+let splitPayment = null, groupPayment = null, splitPoll = null;
+
+function log(msg) {
+  const el = document.getElementById('log');
+  const lines = el.textContent.split('\n').filter(Boolean);
+  if (lines.length > 30) lines.splice(0, lines.length - 30);
+  lines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+  el.textContent = lines.join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  const idx = tab === 'split' ? 1 : tab === 'group' ? 2 : 3;
+  document.querySelector(`.tab:nth-child(${idx})`).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function removeRow(btn) {
+  const rows = btn.closest('.payer-row, .recipient-row').parentElement.children;
+  if (rows.length > 1) btn.closest('.payer-row, .recipient-row').remove();
+}
+
+// ==================== SPLIT PAYMENT ====================
+function addSplitRecipient() {
+  const div = document.createElement('div'); div.className = 'recipient-row';
+  div.innerHTML = `<div class="row">
+    <div style="flex:3"><input class="s-rwallet" placeholder="Wallet URL"></div>
+    <div style="flex:1"><input class="s-rpct" placeholder="%" type="number" min="0" max="100"></div>
+    <div><button class="btn-sm btn-danger" onclick="removeRow(this)">✕</button></div></div>`;
+  document.getElementById('s-recipients').appendChild(div);
+}
+
+function getSplitRecipients() {
+  const ws = document.querySelectorAll('.s-rwallet'), ps = document.querySelectorAll('.s-rpct');
+  const out = [];
+  for (let i = 0; i < ws.length; i++) {
+    const w = ws[i].value.trim(), p = parseFloat(ps[i].value);
+    if (w && !isNaN(p) && p > 0) out.push({ walletUrl: w, percentage: p });
+  }
+  return out;
+}
+
+function resetSplitFlow() {
+  splitPayment = null; if (splitPoll) { clearInterval(splitPoll); splitPoll = null; }
+  document.getElementById('splitActions').classList.remove('show');
+  document.getElementById('s-checkoutBtn').disabled = false;
+  document.getElementById('s-checkoutBtn').textContent = '1. Checkout';
+  document.getElementById('s-step1num').classList.remove('step-done');
+  document.getElementById('s-response').textContent = '// Click Checkout';
+  document.getElementById('s-activeStatus').textContent = '-';
+  document.getElementById('s-activeStatus').className = 'status-badge';
+}
+
+async function splitCheckout() {
+  const btn = document.getElementById('s-checkoutBtn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+  const senderWalletUrl = document.getElementById('s-sender').value.trim();
+  const recipients = getSplitRecipients();
+  const totalAmount = {
+    value: document.getElementById('s-value').value,
+    assetCode: document.getElementById('s-assetCode').value,
+    assetScale: parseInt(document.getElementById('s-assetScale').value)
+  };
+
+  if (!senderWalletUrl || recipients.length === 0) {
+    document.getElementById('s-response').textContent = JSON.stringify({ error: 'Missing fields' }, null, 2);
+    btn.disabled = false; btn.textContent = '1. Checkout'; return;
+  }
+  const pctSum = recipients.reduce((s, r) => s + r.percentage, 0);
+  if (Math.abs(pctSum - 100) > 0.01) {
+    document.getElementById('s-response').textContent = JSON.stringify({ error: `Percentages sum to ${pctSum}%, need 100%` }, null, 2);
+    btn.disabled = false; btn.textContent = '1. Checkout'; return;
+  }
+
+  log(`Split checkout: ${recipients.length} recipients, ${totalAmount.value} ${totalAmount.assetCode}`);
+  try {
+    const r = await fetch(API + '/api/split-payments/checkout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senderWalletUrl, recipients, totalAmount })
+    });
+    const j = await r.json();
+    document.getElementById('s-response').textContent = JSON.stringify(j, null, 2);
+
+    if (j.success && j.data?.splitPaymentId) {
+      splitPayment = j.data;
+      document.getElementById('s-activeId').textContent = j.data.splitPaymentId;
+      document.getElementById('s-activeStatus').textContent = 'PENDING_AUTHORIZATION';
+      document.getElementById('s-activeStatus').className = 'status-badge status-PENDING';
+      document.getElementById('s-redirectLink').href = j.data.redirectUrl;
+      document.getElementById('splitActions').classList.add('show');
+      document.getElementById('s-step1num').classList.add('step-done');
+      document.getElementById('s-checkoutBtn').textContent = '✓ Checked out';
+      log(`✅ ${j.data.splitPaymentId}`);
+      if (j.data.redirectUrl) { log('🔗 Opening authorization...'); window.open(j.data.redirectUrl, '_blank'); }
+      splitPoll = setInterval(async () => {
+        try {
+          const r = await fetch(API + '/api/split-payments/' + j.data.splitPaymentId);
+          const d = await r.json();
+          if (d.success && d.data && (d.data.status === 'COMPLETED' || d.data.status === 'FAILED' || d.data.status === 'PARTIAL')) {
+            document.getElementById('s-activeStatus').textContent = d.data.status;
+            document.getElementById('s-activeStatus').className = 'status-badge status-' + (d.data.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED');
+            document.getElementById('s-response').textContent = JSON.stringify(d, null, 2);
+            log(`✅ Auto: ${d.data.status}`);
+            clearInterval(splitPoll); splitPoll = null;
+          }
+        } catch(e) {}
+      }, 2000);
+    } else {
+      log(`❌ ${j.message}`); btn.disabled = false; btn.textContent = '1. Checkout';
+    }
+  } catch(e) {
+    document.getElementById('s-response').textContent = JSON.stringify({ error: e.message }, null, 2);
+    log(`❌ ${e.message}`); btn.disabled = false; btn.textContent = '1. Checkout';
+  }
+}
+
+async function splitComplete() {
+  if (!splitPayment?.splitPaymentId) return log('No active payment');
+  const id = splitPayment.splitPaymentId;
+  log(`Manual complete: ${id}`);
+  try {
+    const r = await fetch(API + `/api/split-payments/${id}/complete`, { method: 'POST' });
+    const j = await r.json();
+    document.getElementById('s-response').textContent = JSON.stringify(j, null, 2);
+    const st = j.data?.status || '?';
+    document.getElementById('s-activeStatus').textContent = st;
+    document.getElementById('s-activeStatus').className = 'status-badge status-' + (st === 'COMPLETED' ? 'COMPLETED' : 'FAILED');
+    log(`${j.success ? '✅' : '❌'} ${st}`);
+    if (splitPoll) { clearInterval(splitPoll); splitPoll = null; }
+  } catch(e) { log(`❌ ${e.message}`); }
+}
+
+async function splitGetStatus() {
+  if (!splitPayment?.splitPaymentId) return;
+  try {
+    const r = await fetch(API + '/api/split-payments/' + splitPayment.splitPaymentId);
+    const j = await r.json();
+    document.getElementById('s-response').textContent = JSON.stringify(j, null, 2);
+    log(`Status: ${j.data?.status || '?'}`);
+  } catch(e) { log(`❌ ${e.message}`); }
+}
+
+// ==================== GROUP CHECKOUT ====================
+function addGroupPayer() {
+  const div = document.createElement('div'); div.className = 'payer-row';
+  div.innerHTML = `<div class="row">
+    <div style="flex:1"><input class="g-payer" placeholder="Payer Wallet URL"></div>
+    <div><button class="btn-sm btn-danger" onclick="removeRow(this)">✕</button></div></div>`;
+  document.getElementById('g-payers').appendChild(div);
+}
+
+function resetGroupFlow() {
+  groupPayment = null;
+  document.getElementById('groupActions').classList.remove('show');
+  document.getElementById('g-checkoutBtn').disabled = false;
+  document.getElementById('g-checkoutBtn').textContent = '1. Create Group';
+  document.getElementById('g-step1num').classList.remove('step-done');
+  document.getElementById('g-response').textContent = '// Click Create Group';
+  document.getElementById('g-redirects').innerHTML = '';
+}
+
+async function groupCheckout() {
+  const btn = document.getElementById('g-checkoutBtn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+
+  const merchantAddress = document.getElementById('g-merchant').value.trim();
+  const totalAmountMinor = document.getElementById('g-total').value;
+  const payers = Array.from(document.querySelectorAll('.g-payer')).map(i => i.value.trim()).filter(Boolean);
+
+  if (!merchantAddress || payers.length === 0 || !totalAmountMinor) {
+    document.getElementById('g-response').textContent = JSON.stringify({ error: 'Missing fields' }, null, 2);
+    btn.disabled = false; btn.textContent = '1. Create Group'; return;
+  }
+
+  const total = parseInt(totalAmountMinor);
+  const perPayer = Math.floor(total / payers.length);
+  const remainder = total % payers.length;
+  log(`Group checkout: ${payers.length} payers, total ${total} minor units (${perPayer} each, ${remainder} remainder)`);
+
+  try {
+    const r = await fetch(API + '/api/split/group-checkout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merchantAddress, totalAmountMinor, payers })
+    });
+    const j = await r.json();
+    document.getElementById('g-response').textContent = JSON.stringify(j, null, 2);
+
+    if (j.success && j.data?.results) {
+      groupPayment = j.data;
+      document.getElementById('groupActions').classList.add('show');
+      document.getElementById('g-step1num').classList.add('step-done');
+      document.getElementById('g-checkoutBtn').textContent = '✓ Created';
+
+      const container = document.getElementById('g-redirects');
+      container.innerHTML = j.data.results.map((r, i) => `
+        <div class="result-item">
+          <b>Payer ${i+1}:</b> <code>${r.payer}</code> — ${r.shareMinor} minor units<br>
+          <a href="${r.redirectUrl}" target="_blank" class="btn-big btn-purple" style="margin-top:6px; font-size:0.75rem; padding:8px 12px;">
+            🔗 Payer ${i+1}: Authorize →
+          </a>
+        </div>
+      `).join('');
+
+      // Open first payer link automatically
+      if (j.data.results[0]?.redirectUrl) {
+        log(`🔗 Opening payer 1 authorization...`);
+        window.open(j.data.results[0].redirectUrl, '_blank');
+      }
+      log(`✅ Group created: ${j.data.groupId} — ${j.data.count} payers`);
+    } else {
+      log(`❌ ${j.message}`); btn.disabled = false; btn.textContent = '1. Create Group';
+    }
+  } catch(e) {
+    document.getElementById('g-response').textContent = JSON.stringify({ error: e.message }, null, 2);
+    log(`❌ ${e.message}`); btn.disabled = false; btn.textContent = '1. Create Group';
+  }
+}
+
+// ==================== P2P PAYMENT ====================
+let p2pPayment = null, p2pPoll = null;
+
+function resetP2PFlow() {
+  p2pPayment = null; if (p2pPoll) { clearInterval(p2pPoll); p2pPoll = null; }
+  document.getElementById('p2pActions').classList.remove('show');
+  document.getElementById('p-checkoutBtn').disabled = false;
+  document.getElementById('p-checkoutBtn').textContent = '1. Initiate Payment';
+  document.getElementById('p-step1num').classList.remove('step-done');
+  document.getElementById('p-response').textContent = '// Click Initiate';
+  document.getElementById('p-activeStatus').textContent = '-';
+  document.getElementById('p-activeStatus').className = 'status-badge';
+}
+
+async function p2pCheckout() {
+  const btn = document.getElementById('p-checkoutBtn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+
+  const senderWalletUrl = document.getElementById('p-sender').value.trim();
+  const recipientWalletUrl = document.getElementById('p-recipient').value.trim();
+  const amount = {
+    value: document.getElementById('p-value').value,
+    assetCode: document.getElementById('p-assetCode').value,
+    assetScale: parseInt(document.getElementById('p-assetScale').value)
+  };
+
+  if (!senderWalletUrl || !recipientWalletUrl || !amount.value) {
+    document.getElementById('p-response').textContent = JSON.stringify({ error: 'Missing fields' }, null, 2);
+    btn.disabled = false; btn.textContent = '1. Initiate Payment'; return;
+  }
+
+  log(`P2P: ${senderWalletUrl} → ${recipientWalletUrl}, ${amount.value} ${amount.assetCode}`);
+
+  try {
+    const r = await fetch(API + '/api/payments/initiate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senderWalletUrl, recipientWalletUrl, amount })
+    });
+    const j = await r.json();
+    document.getElementById('p-response').textContent = JSON.stringify(j, null, 2);
+
+    if (j.success && j.data?.paymentId) {
+      p2pPayment = j.data;
+      document.getElementById('p-activeId').textContent = j.data.paymentId;
+      document.getElementById('p-activeStatus').textContent = 'PENDING_AUTHORIZATION';
+      document.getElementById('p-activeStatus').className = 'status-badge status-PENDING';
+      document.getElementById('p-redirectLink').href = j.data.redirectUrl;
+      document.getElementById('p2pActions').classList.add('show');
+      document.getElementById('p-step1num').classList.add('step-done');
+      document.getElementById('p-checkoutBtn').textContent = '✓ Initiated';
+      log(`✅ ${j.data.paymentId}`);
+      if (j.data.redirectUrl) { log('🔗 Opening authorization...'); window.open(j.data.redirectUrl, '_blank'); }
+
+      p2pPoll = setInterval(async () => {
+        try {
+          const r = await fetch(API + '/api/payments/' + j.data.paymentId);
+          const d = await r.json();
+          if (d.success && d.data && (d.data.status === 'COMPLETED' || d.data.status === 'FAILED')) {
+            document.getElementById('p-activeStatus').textContent = d.data.status;
+            document.getElementById('p-activeStatus').className = 'status-badge status-' + (d.data.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED');
+            document.getElementById('p-response').textContent = JSON.stringify(d, null, 2);
+            log(`✅ Auto: ${d.data.status}`);
+            clearInterval(p2pPoll); p2pPoll = null;
+          }
+        } catch(e) {}
+      }, 2000);
+    } else {
+      log(`❌ ${j.message}`); btn.disabled = false; btn.textContent = '1. Initiate Payment';
+    }
+  } catch(e) {
+    document.getElementById('p-response').textContent = JSON.stringify({ error: e.message }, null, 2);
+    log(`❌ ${e.message}`); btn.disabled = false; btn.textContent = '1. Initiate Payment';
+  }
+}
+
+async function p2pComplete() {
+  if (!p2pPayment?.paymentId) return log('No active payment');
+  const id = p2pPayment.paymentId;
+  log(`Manual complete: ${id}`);
+  try {
+    const r = await fetch(API + `/api/payments/${id}/complete`, { method: 'POST' });
+    const j = await r.json();
+    document.getElementById('p-response').textContent = JSON.stringify(j, null, 2);
+    const st = j.data?.status || '?';
+    document.getElementById('p-activeStatus').textContent = st;
+    document.getElementById('p-activeStatus').className = 'status-badge status-' + (st === 'COMPLETED' ? 'COMPLETED' : 'FAILED');
+    log(`${j.success ? '✅' : '❌'} ${st}`);
+    if (p2pPoll) { clearInterval(p2pPoll); p2pPoll = null; }
+  } catch(e) { log(`❌ ${e.message}`); }
+}
+
+async function p2pGetStatus() {
+  if (!p2pPayment?.paymentId) return;
+  try {
+    const r = await fetch(API + '/api/payments/' + p2pPayment.paymentId);
+    const j = await r.json();
+    document.getElementById('p-response').textContent = JSON.stringify(j, null, 2);
+    log(`Status: ${j.data?.status || '?'}`);
+  } catch(e) { log(`❌ ${e.message}`); }
+}
+
+// ==================== SHARED ====================
+async function checkServer() {
+  try {
+    const r = await fetch(API + '/health');
+    const j = await r.json();
+    const el = document.getElementById('serverStatus');
+    el.textContent = j.success ? 'ONLINE' : 'DEGRADED';
+    el.className = 'status-badge ' + (j.success ? 'status-COMPLETED' : 'status-PARTIAL');
+  } catch(e) {
+    const el = document.getElementById('serverStatus');
+    el.textContent = 'OFFLINE'; el.className = 'status-badge status-FAILED';
+  }
+}
+
+async function loadHistory() {
+  try {
+    const r = await fetch(API + '/api/payments/list?limit=20');
+    document.getElementById('s-history').textContent = JSON.stringify(await r.json(), null, 2);
+  } catch(e) { document.getElementById('s-history').textContent = 'Error: ' + e.message; }
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch(API + '/api/payments/stats');
+    document.getElementById('s-history').textContent = JSON.stringify(await r.json(), null, 2);
+  } catch(e) { document.getElementById('s-history').textContent = 'Error: ' + e.message; }
+}
+
+checkServer(); setInterval(checkServer, 10000);
+
+// Handle callback redirects on page load
+const params = new URLSearchParams(window.location.search);
+const cbStatus = params.get('status');
+const cbId = params.get('splitPaymentId');
+const gbStatus = params.get('groupStatus');
+const gbId = params.get('groupId');
+const gbPayer = params.get('payer');
+
+if (cbStatus && cbId) {
+  document.addEventListener('DOMContentLoaded', async () => {
+    log(`🔔 Split callback: ${cbStatus} — ${cbId}`);
+    document.getElementById('s-activeId').textContent = cbId;
+    document.getElementById('s-activeStatus').textContent = cbStatus;
+    document.getElementById('s-activeStatus').className = 'status-badge status-' + (cbStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED');
+    document.getElementById('splitActions').classList.add('show');
+    document.getElementById('s-step1num').classList.add('step-done');
+    document.getElementById('s-checkoutBtn').disabled = true;
+    document.getElementById('s-checkoutBtn').textContent = '✓ Checked out';
+    splitPayment = { splitPaymentId: cbId };
+    try {
+      const r = await fetch(API + '/api/split-payments/' + cbId);
+      document.getElementById('s-response').textContent = JSON.stringify(await r.json(), null, 2);
+    } catch(e) {}
+    window.history.replaceState({}, '', '/');
+  });
+}
+
+if (gbStatus && gbId) {
+  document.addEventListener('DOMContentLoaded', () => {
+    switchTab('group');
+    log(`🔔 Group callback: ${gbStatus} — payer ${gbPayer} in group ${gbId}`);
+    window.history.replaceState({}, '', '/');
+  });
+}
+
+if (cbStatus && params.get('paymentId')) {
+  const pId = params.get('paymentId');
+  document.addEventListener('DOMContentLoaded', async () => {
+    switchTab('p2p');
+    log(`🔔 P2P callback: ${cbStatus} — ${pId}`);
+    document.getElementById('p-activeId').textContent = pId;
+    document.getElementById('p-activeStatus').textContent = cbStatus;
+    document.getElementById('p-activeStatus').className = 'status-badge status-' + (cbStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED');
+    document.getElementById('p2pActions').classList.add('show');
+    document.getElementById('p-step1num').classList.add('step-done');
+    document.getElementById('p-checkoutBtn').disabled = true;
+    document.getElementById('p-checkoutBtn').textContent = '✓ Initiated';
+    p2pPayment = { paymentId: pId };
+    try {
+      const r = await fetch(API + '/api/payments/' + pId);
+      document.getElementById('p-response').textContent = JSON.stringify(await r.json(), null, 2);
+    } catch(e) {}
+    window.history.replaceState({}, '', '/');
+  });
+}
+</script>
+</body>
+</html>

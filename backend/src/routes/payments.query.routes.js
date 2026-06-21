@@ -1,5 +1,6 @@
 import express from "express";
 import paymentsQueryController from "../controllers/payments.query.controller.js";
+import paymentsController from "../controllers/payments.controller.js";
 
 const router = express.Router();
 
@@ -21,6 +22,12 @@ router.get(
 router.get(
   "/search",
   paymentsQueryController.searchPayments.bind(paymentsQueryController)
+);
+
+// Callback automático de autorización (GNAP finish redirect)
+router.get(
+  "/callback",
+  paymentsController.handleCallback.bind(paymentsController)
 );
 
 // ⚠️ Esta ruta con parámetro debe ir AL FINAL

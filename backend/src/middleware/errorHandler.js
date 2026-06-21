@@ -9,8 +9,8 @@ export const errorHandler = (err, req, res, next) => {
     return error(res, "Error en el sistema de pagos", 500, err.message);
   }
 
-  // Errores de Firestore
-  if (err.code && err.code.includes("firestore")) {
+  // Errores de MongoDB
+  if (err.name === "MongoServerError" || err.name === "MongoNetworkError") {
     return error(res, "Error en la base de datos", 500, err.message);
   }
 
