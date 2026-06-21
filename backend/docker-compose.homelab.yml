@@ -45,7 +45,7 @@ services:
       retries: 3
 
   mongo:
-    image: mongo:7
+    image: mongo:4.4
     container_name: interledger-mongo
     volumes:
       - mongo-data:/data/db
@@ -53,7 +53,7 @@ services:
       - interledger-net
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 3s
       retries: 3
